@@ -15,6 +15,7 @@ import { fmt } from '../../lib/format.js';
 import type { ColorMode } from '../../store/ui.js';
 import {
   aggregate,
+  bucketKey,
   chooseGranularity,
   formatBucketLabel,
   type ChartBucket,
@@ -49,8 +50,8 @@ interface ConsumptionChartProps {
   points: ConsumptionPoint[];
   grid: TariffGrid | null;
   colorMode: ColorMode;
-  /** Série lissée (lot 6), superposée en pointillés. */
-  smoothed?: ConsumptionPoint[];
+  /** Heures substituées par le lissage (début UTC → kWh lissés), superposées en pointillés. */
+  smoothed?: ReadonlyMap<number, number>;
 }
 
 type Series = Record<string, unknown>;
@@ -121,10 +122,21 @@ export function ConsumptionChart({ points, grid, colorMode, smoothed }: Consumpt
   const [granularity, setGranularity] = useState<Granularity>(() => chooseGranularity(span));
 
   const buckets = useMemo(() => aggregate(points, granularity, grid), [points, granularity, grid]);
-  const smoothedBuckets = useMemo(
-    () => (smoothed ? aggregate(smoothed, granularity, null) : null),
-    [smoothed, granularity],
-  );
+  // Série lissée : points d'origine avec les heures substituées ; à la maille heure/jour,
+  // seuls les points contenant une substitution sont tracés (nulls ailleurs → ligne interrompue).
+  const smoothedBuckets = useMemo(() => {
+    if (!smoothed || smoothed.size === 0) return null;
+    const substitutedPoints = points.map((p) => {
+      const v = smoothed.get(p.start);
+      return v === undefined ? p : { ...p, kwh: v };
+    });
+    const flagged = new Set(
+      points.filter((p) => smoothed.has(p.start)).map((p) => bucketKey(p, granularity)),
+    );
+    return aggregate(substitutedPoints, granularity, null).map((b) =>
+      granularity === 'month' || flagged.has(b.key) ? b : { ...b, kwh: null },
+    );
+  }, [smoothed, points, granularity]);
 
   // Initialisation et redimensionnement
   useEffect(() => {
@@ -161,7 +173,7 @@ export function ConsumptionChart({ points, grid, colorMode, smoothed }: Consumpt
     const series = seriesFor(buckets, colorMode);
     if (smoothedBuckets) {
       series.push({
-        name: 'Conso lissée',
+        name: t.home.chart.smoothedSeries,
         type: 'line',
         showSymbol: false,
         lineStyle: { type: 'dashed', width: 2, color: '#b91c1c' },

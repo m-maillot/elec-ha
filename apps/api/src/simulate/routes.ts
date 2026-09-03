@@ -1,5 +1,5 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
-import { addDays, simulate, type SimulateResponse } from '@elec-ha/core';
+import { addDays, simulate, simulateWithSmoothing, type SimulateResponse } from '@elec-ha/core';
 import { loadBuckets, loadTempoCalendar } from '../data/repository.js';
 import { badRequest, notConfigured } from '../errors.js';
 import { SimulateBodySchema } from '../schemas.js';
@@ -12,18 +12,28 @@ export const simulateRoutes: FastifyPluginAsyncTypebox = async (app) => {
     const params = settings.getSimulationSettings();
     if (!params) throw notConfigured('grille tarifaire');
 
-    const result = simulate({
+    const smoothingEnabled = req.body.smoothing?.enabled ?? false;
+    // Avec lissage, les jours de référence peuvent se trouver hors de la période analysée.
+    const margin = smoothingEnabled ? params.smoothingSearchWindowDays + 1 : 0;
+    const loadFrom = addDays(from, -margin);
+    const loadTo = addDays(to, margin);
+    const simulationInput = {
       period: { from, to },
-      buckets: loadBuckets(db, clock, settings.get().ha.entityIds, from, to),
+      buckets: loadBuckets(db, clock, settings.get().ha.entityIds, loadFrom, loadTo),
       grid: params.grid,
       offpeak: params.offpeak,
       // La veille est nécessaire pour les heures avant la bascule de couleur du premier jour.
-      tempoCalendar: loadTempoCalendar(db, addDays(from, -1), to),
+      tempoCalendar: loadTempoCalendar(db, addDays(loadFrom, -1), loadTo),
       currentOption: req.body.currentOption ?? params.currentOption,
       options: { colorSwitchHour: params.colorSwitchHour, zone: clock.zoneName },
-    });
+    };
+    const result = smoothingEnabled
+      ? simulateWithSmoothing(simulationInput, {
+          refDays: params.smoothingRefDays,
+          searchWindowDays: params.smoothingSearchWindowDays,
+        })
+      : simulate(simulationInput);
 
-    // Le lissage (lot 6) n'est pas encore branché : accepté mais ignoré.
-    return { ...result, smoothingApplied: false, lastSyncAt: settings.get().lastSyncAt };
+    return { ...result, smoothingApplied: smoothingEnabled, lastSyncAt: settings.get().lastSyncAt };
   });
 };

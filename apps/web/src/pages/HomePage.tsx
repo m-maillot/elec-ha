@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { isIsoDate } from '@elec-ha/core';
 import { TARIFF_OPTIONS } from '@elec-ha/core';
@@ -19,27 +19,42 @@ const h = t.home;
 
 export function HomePage() {
   const settings = useSettings();
-  const { from, to, smoothing, colorMode, setColorMode, setPeriod } = useUiStore();
+  const {
+    from,
+    to,
+    smoothing,
+    colorMode,
+    setColorMode,
+    setPeriod,
+    showSmoothed,
+    setShowSmoothed,
+    setSmoothing,
+  } = useUiStore();
   const [params, setParams] = useSearchParams();
 
   // Période fournie dans l'URL (?from&to) : appliquée puis retirée de l'adresse.
   useEffect(() => {
     const f = params.get('from');
     const tt = params.get('to');
-    if (f && tt && isIsoDate(f) && isIsoDate(tt) && f <= tt) {
-      setPeriod(f, tt);
-      setParams({}, { replace: true });
-    }
-  }, [params, setParams, setPeriod]);
+    const sm = params.get('smoothing');
+    if (f && tt && isIsoDate(f) && isIsoDate(tt) && f <= tt) setPeriod(f, tt);
+    if (sm !== null) setSmoothing(sm === '1' || sm === 'true');
+    if (f || tt || sm !== null) setParams({}, { replace: true });
+  }, [params, setParams, setPeriod, setSmoothing]);
   const configured = settings.data?.configured ?? false;
   const simulation = useSimulate({ from, to, smoothing: { enabled: smoothing } }, configured);
   const consumption = useConsumption(from, to, configured);
+
+  const result = simulation.data;
+  const substituted = useMemo(
+    () => new Map((result?.smoothing?.substitutedHours ?? []).map((h) => [h.start, h.kwh])),
+    [result],
+  );
 
   if (settings.isPending) return <p className="text-slate-500">{t.app.loading}</p>;
   if (settings.isError) return <Alert variant="error">{errorMessage(settings.error)}</Alert>;
   if (!settings.data.configured) return <Navigate to="/settings?welcome=1" replace />;
 
-  const result = simulation.data;
   const points = consumption.data?.points ?? [];
   const missingHours = points.reduce((a, p) => a + p.missingHours, 0);
   const missingDays = new Set(
@@ -50,11 +65,7 @@ export function HomePage() {
     <div className="flex flex-col gap-4">
       <h2 className="text-2xl font-semibold">{h.title}</h2>
       <ParamsBar settings={settings.data} />
-      <StatusBanners
-        lastSyncAt={settings.data.lastSyncAt}
-        result={result}
-        smoothingRequested={smoothing}
-      />
+      <StatusBanners lastSyncAt={settings.data.lastSyncAt} result={result} />
       {simulation.isError && <Alert variant="error">{errorMessage(simulation.error)}</Alert>}
 
       <section aria-label={h.cards.title} className="flex flex-col gap-2">
@@ -77,6 +88,16 @@ export function HomePage() {
             <span className="text-xs text-slate-500">
               {missingHours > 0 ? h.missingHours(missingHours, missingDays) : h.noMissing}
             </span>
+            {smoothing && result?.smoothing && (
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={showSmoothed}
+                  onChange={(e) => setShowSmoothed(e.target.checked)}
+                />
+                {h.chart.showSmoothed}
+              </label>
+            )}
             <label className="flex items-center gap-2 text-sm">
               <span className="text-slate-600">{h.chart.colorBy}</span>
               <Select
@@ -102,6 +123,7 @@ export function HomePage() {
               points={points}
               grid={settings.data.grid}
               colorMode={colorMode}
+              {...(smoothing && showSmoothed ? { smoothed: substituted } : {})}
             />
           )}
         </CardContent>

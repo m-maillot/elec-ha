@@ -7,6 +7,10 @@ const eur4 = new Intl.NumberFormat('fr-FR', {
 });
 const kwhFmt = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 });
 const kwh3 = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+const signedKwh = new Intl.NumberFormat('fr-FR', {
+  maximumFractionDigits: 1,
+  signDisplay: 'exceptZero',
+});
 const pct = new Intl.NumberFormat('fr-FR', {
   style: 'percent',
   maximumFractionDigits: 1,
@@ -26,6 +30,7 @@ export const fmt = {
   signedEur: (v: number) => signedEur.format(v),
   kwh: (v: number) => `${kwhFmt.format(v)} kWh`,
   kwh3: (v: number) => `${kwh3.format(v)} kWh`,
+  signedKwh: (v: number) => `${signedKwh.format(v)} kWh`,
   /** `v` en fraction (0.12 → « +12 % »). */
   pct: (v: number) => pct.format(v),
   date: (iso: string) => dateFmt.format(new Date(`${iso}T12:00:00`)),

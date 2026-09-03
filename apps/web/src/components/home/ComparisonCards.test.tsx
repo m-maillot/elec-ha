@@ -41,3 +41,32 @@ describe('ComparisonCards', () => {
     expect(within(tempo).getByText(/2,5 kWh exclus/)).toBeInTheDocument();
   });
 });
+
+describe('ComparisonCards – lissage', () => {
+  it('affiche le coût sans lissage et les kWh redistribués', () => {
+    const smoothed = {
+      ...simulation,
+      smoothingApplied: true,
+      smoothing: {
+        refDays: 3,
+        searchWindowDays: 14,
+        periods: [
+          {
+            days: ['2026-01-15'],
+            referencesBefore: ['2026-01-12', '2026-01-13', '2026-01-14'],
+            referencesAfter: ['2026-01-16', '2026-01-17', '2026-01-18'],
+            smoothed: true,
+          },
+        ],
+        costWithoutSmoothing: 3.21,
+        redistributedKwh: 22,
+        substitutedHours: [],
+      },
+    };
+    render(<ComparisonCards result={smoothed} />);
+    const tempo = screen.getByRole('region', { name: 'Tempo' });
+    expect(within(tempo).getByText('Coût sans lissage')).toBeInTheDocument();
+    expect(within(tempo).getByText(/3,21\s€/)).toBeInTheDocument();
+    expect(within(tempo).getByText(/\+22\skWh/)).toBeInTheDocument();
+  });
+});

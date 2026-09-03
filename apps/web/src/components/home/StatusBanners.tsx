@@ -20,17 +20,16 @@ function DayList({ days }: { days: string[] }) {
 export function StatusBanners({
   lastSyncAt,
   result,
-  smoothingRequested,
 }: {
   lastSyncAt: string | null;
   result: SimulateResponse | undefined;
-  smoothingRequested: boolean;
 }) {
   const [now] = useState(() => Date.now());
   const stale = lastSyncAt !== null && now - Date.parse(lastSyncAt) > STALE_AFTER_MS;
   const missing = result?.warnings.find((w) => w.code === 'missing_hours');
   const unknown = result?.warnings.find((w) => w.code === 'unknown_tempo_days');
   const negative = result?.warnings.find((w) => w.code === 'negative_values');
+  const noRef = result?.warnings.find((w) => w.code === 'smoothing_no_reference');
   const showPartial = missing || unknown || negative;
 
   return (
@@ -39,8 +38,20 @@ export function StatusBanners({
       {lastSyncAt !== null && stale && (
         <Alert variant="warning">{h.staleSince(fmt.dateTime(lastSyncAt))}</Alert>
       )}
-      {smoothingRequested && result && !result.smoothingApplied && (
-        <Alert>{h.smoothingUnavailable}</Alert>
+      {result?.smoothing && (
+        <Alert>
+          {h.smoothingActive(
+            result.smoothing.periods.length,
+            result.smoothing.refDays,
+            result.smoothing.searchWindowDays,
+          )}
+        </Alert>
+      )}
+      {noRef && (
+        <Alert variant="warning">
+          {h.smoothingNoReference(noRef.days?.length ?? 0)}
+          <DayList days={noRef.days ?? []} />
+        </Alert>
       )}
       {showPartial && (
         <Alert variant="warning">
