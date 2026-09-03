@@ -24,7 +24,7 @@ export default tseslint.config(
   },
   {
     // Plugins Fastify : la signature est async même sans await.
-    files: ['apps/api/src/**/routes.ts'],
+    files: ['apps/api/src/**/*routes.ts'],
     rules: { '@typescript-eslint/require-await': 'off' },
   },
   {

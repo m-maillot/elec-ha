@@ -14,6 +14,7 @@ import { haRoutes } from './ha/routes.js';
 import { dataRoutes } from './data/routes.js';
 import { consumptionRoutes } from './consumption/routes.js';
 import { tempoRoutes } from './tempo/routes.js';
+import { rteRoutes } from './tempo/rte-routes.js';
 import { simulateRoutes } from './simulate/routes.js';
 
 export interface BuildAppOptions {
@@ -21,12 +22,15 @@ export interface BuildAppOptions {
   /** Base déjà ouverte (tests) ; sinon `<dataDir>/elec-ha.sqlite`. */
   db?: Db;
   logger?: boolean;
+  /** URL de base de l'API RTE (tests). */
+  rteBaseUrl?: string;
 }
 
 export async function buildApp({
   config,
   db,
   logger = true,
+  rteBaseUrl,
 }: BuildAppOptions): Promise<FastifyInstance> {
   const app = Fastify({ logger }).withTypeProvider<TypeBoxTypeProvider>();
 
@@ -60,9 +64,10 @@ export async function buildApp({
 
   await app.register(settingsRoutes);
   await app.register(haRoutes);
-  await app.register(dataRoutes);
+  await app.register(dataRoutes, rteBaseUrl ? { rteBaseUrl } : {});
   await app.register(consumptionRoutes);
   await app.register(tempoRoutes);
+  await app.register(rteRoutes, rteBaseUrl ? { baseUrl: rteBaseUrl } : {});
   await app.register(simulateRoutes);
 
   // En production, l'API sert aussi la SPA (image Docker unique).
