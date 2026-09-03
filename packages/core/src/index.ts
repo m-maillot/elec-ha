@@ -6,9 +6,11 @@
  * Il est exécutable indifféremment côté serveur (apps/api) et navigateur (apps/web).
  */
 
-export const CORE_VERSION = '0.0.0';
+export const CORE_VERSION = '0.1.0';
 
-/** Options du Tarif Bleu simulées. */
-export type TariffOption = 'base' | 'hphc' | 'tempo';
-
-export const TARIFF_OPTIONS: readonly TariffOption[] = ['base', 'hphc', 'tempo'];
+export * from './types.js';
+export * from './dates.js';
+export { LocalClock, DEFAULT_ZONE, type LocalInstant } from './time.js';
+export * from './offpeak.js';
+export * from './tariffs.js';
+export * from './simulate.js';
