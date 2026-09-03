@@ -14,7 +14,7 @@ export const simulateRoutes: FastifyPluginAsyncTypebox = async (app) => {
 
     const result = simulate({
       period: { from, to },
-      buckets: loadBuckets(db, clock, from, to),
+      buckets: loadBuckets(db, clock, settings.get().ha.entityIds, from, to),
       grid: params.grid,
       offpeak: params.offpeak,
       // La veille est nécessaire pour les heures avant la bascule de couleur du premier jour.

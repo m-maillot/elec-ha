@@ -21,7 +21,7 @@ export const consumptionRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (from > to) throw badRequest('La date de début doit précéder la date de fin.');
       const { db, clock, settings } = app.ctx;
       const dto = settings.get();
-      const buckets = loadBuckets(db, clock, from, to);
+      const buckets = loadBuckets(db, clock, settings.get().ha.entityIds, from, to);
       const calendar = loadTempoCalendar(db, addDays(from, -1), to);
       const series = resolveHours(
         buckets,

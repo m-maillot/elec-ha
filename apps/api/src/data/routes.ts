@@ -21,7 +21,7 @@ export const dataRoutes: FastifyPluginAsyncTypebox<DataRoutesOptions> = async (a
     if (from > to) throw badRequest('La date de début doit précéder la date de fin.');
     const conn = app.ctx.settings.getHaConnection();
     if (!conn) throw notConfigured('connexion Home Assistant');
-    if (!conn.entityId) throw notConfigured('entité de consommation');
+    if (conn.entityIds.length === 0) throw notConfigured('entité de consommation');
 
     reply.hijack();
     reply.raw.writeHead(200, {
@@ -39,7 +39,7 @@ export const dataRoutes: FastifyPluginAsyncTypebox<DataRoutesOptions> = async (a
         db: app.ctx.db,
         clock: app.ctx.clock,
         ha: new HaClient(conn.url, conn.token),
-        statisticId: conn.entityId,
+        statisticIds: conn.entityIds,
         from,
         to,
         onProgress: (done, total, message) =>

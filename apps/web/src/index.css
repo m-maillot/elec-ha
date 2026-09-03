@@ -1,0 +1,15 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-tempo-blue: #2563eb;
+  --color-tempo-white: #9ca3af;
+  --color-tempo-red: #dc2626;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+}

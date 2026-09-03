@@ -41,14 +41,27 @@ describe('/api/ha/test', () => {
           has_mean: true,
           source: 'recorder',
         },
-      ],
-      states: [
+        // Format HA ≥ 2022.10 (2026.8 : mean_type, unit_class, statistics_unit_of_measurement)
         {
-          entity_id: 'sensor.rte_tempo_couleur_actuelle',
-          state: 'Bleu',
-          attributes: { friendly_name: 'Couleur du jour' },
+          statistic_id: 'sensor.linky_hp',
+          name: 'Linky HP',
+          source: 'recorder',
+          has_sum: true,
+          mean_type: 0,
+          unit_class: 'energy',
+          statistics_unit_of_measurement: 'kWh',
+          display_unit_of_measurement: 'kWh',
         },
-        { entity_id: 'sensor.other', state: '1', attributes: {} },
+        {
+          statistic_id: 'sensor.gas_m3',
+          name: 'Gaz',
+          source: 'recorder',
+          has_sum: true,
+          mean_type: 0,
+          unit_class: 'volume',
+          statistics_unit_of_measurement: 'm³',
+          display_unit_of_measurement: 'm³',
+        },
       ],
     });
   });
@@ -65,13 +78,16 @@ describe('/api/ha/test', () => {
     });
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body).toMatchObject({ ok: true, version: '2026.8.1', eligibleEntities: 2 });
+    expect(body).toMatchObject({
+      ok: true,
+      version: '2026.8.1',
+      eligibleEntities: 3,
+      totalStatistics: 6,
+    });
     expect(body.entities.map((e: { statisticId: string }) => e.statisticId)).toEqual([
       'sensor.energy',
       'sensor.energy_wh',
-    ]);
-    expect(body.tempoEntities).toEqual([
-      { entityId: 'sensor.rte_tempo_couleur_actuelle', name: 'Couleur du jour', state: 'Bleu' },
+      'sensor.linky_hp',
     ]);
   });
 
@@ -104,7 +120,7 @@ describe('/api/ha/test', () => {
     const res = await app.inject({ method: 'POST', url: '/api/ha/test', payload: {} });
     expect(res.statusCode).toBe(200);
     const entities = await app.inject({ method: 'GET', url: '/api/ha/entities' });
-    expect(entities.json().entities).toHaveLength(2);
+    expect(entities.json().entities).toHaveLength(3);
   });
 
   it('refuse /api/ha/entities sans configuration', async () => {

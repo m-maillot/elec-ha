@@ -42,8 +42,7 @@ export const SettingsUpdateSchema = Type.Object({
     Type.Object({
       url: Type.Optional(Type.String()),
       token: Type.Optional(Type.String()),
-      entityId: Type.Optional(NullableString),
-      tempoEntityId: Type.Optional(NullableString),
+      entityIds: Type.Optional(Type.Array(Type.String({ minLength: 1 }), { maxItems: 20 })),
     }),
   ),
   subscribedPowerKva: Type.Optional(SubscribedPowerSchema),

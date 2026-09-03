@@ -6,15 +6,12 @@ export interface FakeHaOptions {
   token?: string;
   version?: string;
   statisticIds?: Array<Record<string, unknown>>;
-  states?: Array<Record<string, unknown>>;
   /** Génère les buckets horaires `[startMs, endMs[` (start epoch ms). */
   statistics?: (
     statisticId: string,
     startMs: number,
     endMs: number,
   ) => Array<Record<string, unknown>>;
-  /** Historique d'états `[startMs, endMs[` pour `history/history_during_period`. */
-  history?: (entityId: string, startMs: number, endMs: number) => Array<Record<string, unknown>>;
 }
 
 export interface FakeHa {
@@ -69,24 +66,12 @@ export async function startFakeHa(opts: FakeHaOptions = {}): Promise<FakeHa> {
         case 'recorder/list_statistic_ids':
           reply(opts.statisticIds ?? []);
           break;
-        case 'get_states':
-          reply(opts.states ?? []);
-          break;
         case 'recorder/statistics_during_period': {
           const ids = msg['statistic_ids'] as string[];
           const startMs = Date.parse(msg['start_time'] as string);
           const endMs = Date.parse(msg['end_time'] as string);
           const out: Record<string, unknown> = {};
           for (const id of ids) out[id] = opts.statistics?.(id, startMs, endMs) ?? [];
-          reply(out);
-          break;
-        }
-        case 'history/history_during_period': {
-          const ids = msg['entity_ids'] as string[];
-          const startMs = Date.parse(msg['start_time'] as string);
-          const endMs = Date.parse(msg['end_time'] as string);
-          const out: Record<string, unknown> = {};
-          for (const id of ids) out[id] = opts.history?.(id, startMs, endMs) ?? [];
           reply(out);
           break;
         }

@@ -15,19 +15,22 @@ export class HaError extends ApiError {
   }
 }
 
+/**
+ * Élément de `recorder/list_statistic_ids`. HA ≥ 2022.10 expose
+ * `statistics_unit_of_measurement` / `display_unit_of_measurement` et `unit_class` ;
+ * les versions plus anciennes exposaient `unit_of_measurement`.
+ */
 export interface HaStatisticId {
   statistic_id: string;
   name: string | null;
-  unit_of_measurement: string | null;
-  has_sum: boolean;
-  has_mean: boolean;
   source: string;
-}
-
-export interface HaState {
-  entity_id: string;
-  state: string;
-  attributes: Record<string, unknown>;
+  has_sum: boolean;
+  has_mean?: boolean;
+  mean_type?: number;
+  unit_class?: string | null;
+  statistics_unit_of_measurement?: string | null;
+  display_unit_of_measurement?: string | null;
+  unit_of_measurement?: string | null;
 }
 
 /** Bucket brut renvoyé par `recorder/statistics_during_period`. */
@@ -39,10 +42,20 @@ export interface HaStatBucket {
   change: number | null;
 }
 
-const ELIGIBLE_UNITS = new Set(['kWh', 'Wh', 'MWh']);
+const ELIGIBLE_UNITS = new Set(['kwh', 'wh', 'mwh', 'gwh']);
 
+/** Unité affichée d'une statistique, quel que soit le format de la version HA. */
+export function statisticUnit(s: HaStatisticId): string {
+  return (
+    s.display_unit_of_measurement ?? s.statistics_unit_of_measurement ?? s.unit_of_measurement ?? ''
+  );
+}
+
+/** Énergie cumulée (index) : `has_sum` et unité d'énergie (ou `unit_class: energy`). */
 export function isEligibleEnergyStatistic(s: HaStatisticId): boolean {
-  return s.has_sum && s.unit_of_measurement !== null && ELIGIBLE_UNITS.has(s.unit_of_measurement);
+  if (!s.has_sum) return false;
+  if (s.unit_class === 'energy') return true;
+  return ELIGIBLE_UNITS.has(statisticUnit(s).trim().toLowerCase());
 }
 
 function toMs(v: unknown): number {
@@ -118,32 +131,31 @@ export class HaClient {
     return conn.sendMessagePromise<HaStatisticId[]>({ type: 'recorder/list_statistic_ids' });
   }
 
-  getStates(conn: Connection): Promise<HaState[]> {
-    return conn.sendMessagePromise<HaState[]>({ type: 'get_states' });
-  }
-
-  /** Statistiques horaires `[startMs, endMs[` converties en kWh. */
+  /** Statistiques horaires `[startMs, endMs[` converties en kWh, par entité. */
   async statisticsDuringPeriod(
     conn: Connection,
-    statisticId: string,
+    statisticIds: readonly string[],
     startMs: number,
     endMs: number,
-  ): Promise<HaStatBucket[]> {
+  ): Promise<Record<string, HaStatBucket[]>> {
     const result = await conn.sendMessagePromise<Record<string, Array<Record<string, unknown>>>>({
       type: 'recorder/statistics_during_period',
       start_time: new Date(startMs).toISOString(),
       end_time: new Date(endMs).toISOString(),
-      statistic_ids: [statisticId],
+      statistic_ids: [...statisticIds],
       period: 'hour',
       types: ['sum', 'change'],
       units: { energy: 'kWh' },
     });
-    const rows = result[statisticId] ?? [];
-    return rows.map((r) => ({
-      start: toMs(r['start']),
-      end: toMs(r['end']),
-      sum: typeof r['sum'] === 'number' ? r['sum'] : null,
-      change: typeof r['change'] === 'number' ? r['change'] : null,
-    }));
+    const out: Record<string, HaStatBucket[]> = {};
+    for (const id of statisticIds) {
+      out[id] = (result[id] ?? []).map((r) => ({
+        start: toMs(r['start']),
+        end: toMs(r['end']),
+        sum: typeof r['sum'] === 'number' ? r['sum'] : null,
+        change: typeof r['change'] === 'number' ? r['change'] : null,
+      }));
+    }
+    return out;
   }
 }

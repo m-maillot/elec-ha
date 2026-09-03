@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Projet** | Comparateur d'options tarifaires EDF (Base / HP-HC / Tempo) |
-| **Version** | 0.2 – arbitrages intégrés |
+| **Version** | 0.3 – entités multiples, sources Tempo réduites |
 | **Date** | 3 septembre 2026 |
 | **Auteur** | Martial |
 | **Statut** | Validée pour démarrage |
@@ -14,6 +14,7 @@
 |---|---|---|
 | 0.1 | 03/09/2026 | Première version pour cadrage |
 | 0.2 | 03/09/2026 | Arbitrages des questions ouvertes : lissage sur 3 jours non rouges de part et d'autre de la période rouge, API RTE par défaut, grille unique, standalone sans authentification |
+| 0.3 | 03/09/2026 | Plusieurs entités de consommation additionnées (ex. index HP + index HC du Linky) ; suppression de la source « entité HA » pour les couleurs Tempo (API RTE + CSV uniquement) |
 
 ---
 
@@ -74,8 +75,7 @@ Utilisateur unique : le propriétaire de l'instance HA, à l'aise avec l'outil (
 |---|---|---|
 | URL de l'instance | texte | ex. `http://homeassistant.local:8123` ; test de connexion obligatoire |
 | Token longue durée | secret | créé dans le profil HA ; stocké chiffré/obfusqué côté serveur, jamais renvoyé au navigateur |
-| Entité de consommation | liste déroulante | filtrée sur les entités ayant des statistiques long terme avec `unit_of_measurement` en kWh/Wh et `state_class` `total` / `total_increasing` |
-| Entité couleur Tempo (optionnelle) | liste déroulante | sensor exposant la couleur du jour (ex. intégration *RTE Tempo*) ; utilisée comme source d'historique des couleurs si présente |
+| Entités de consommation | liste à cocher (une ou plusieurs) | filtrée sur les entités ayant des statistiques long terme avec `unit_of_measurement` en kWh/Wh et `state_class` `total` / `total_increasing`. Plusieurs entités sont **additionnées heure par heure** (cas typique : index HP et index HC du Linky exposés séparément) |
 
 Un bouton **« Tester la connexion »** vérifie l'accès (`GET /api/`) et affiche la version HA et le nombre d'entités éligibles.
 
@@ -121,12 +121,9 @@ Validation : pas de chevauchement entre plages d'un même jeu ; fin ≠ début.
 
 Source **par défaut et recommandée** : l'**API officielle RTE « Tempo Like Supply Contract »**. Saisie de `client_id` / `client_secret` (compte gratuit sur data.rte-france.com, abonnement à l'API puis création d'une application). Un bouton « Tester » vérifie l'obtention d'un jeton OAuth2 et récupère la couleur du jour.
 
-Sources secondaires, disponibles en repli :
+Source secondaire, disponible en repli : **import manuel CSV** (`date;couleur`), mode de secours.
 
-1. **Entité HA** (si l'intégration RTE Tempo est installée) : l'historique de l'état du sensor est lu dans le recorder HA ; limité à la date d'installation de l'intégration.
-2. **Import manuel CSV** (`date;couleur`) : mode de secours.
-
-L'API tierce sans authentification n'est pas retenue en V1.
+L'API tierce sans authentification n'est pas retenue en V1. La lecture de l'historique d'un sensor couleur HA (intégration *RTE Tempo*) a été écartée en v0.3 (voir §9, décision 10).
 
 L'application met en cache les couleurs par date (elles ne changent jamais une fois passées).
 
@@ -294,7 +291,7 @@ Application **autonome**, déployée en conteneur Docker sur le réseau local (m
 - Volume : 8 760 buckets/an, chargés par tranches de 31 jours pour rester sous les limites de message WS.
 - Pré-requis côté HA : l'entité doit avoir `state_class: total_increasing` (index kWh) ; l'énergie du tableau de bord Énergie HA convient. Le champ `change` est disponible dans les versions récentes de HA (≥ 2023.x) ; à défaut, calcul par différence de `sum`.
 
-**Liste des entités éligibles** : WS `recorder/list_statistic_ids` filtré sur `unit_of_measurement ∈ {kWh, Wh}` et `has_sum = true`.
+**Liste des entités éligibles** : WS `recorder/list_statistic_ids` filtré sur `unit_of_measurement ∈ {kWh, Wh}` et `has_sum = true`. Plusieurs entités peuvent être sélectionnées : elles sont demandées dans le même appel `statistics_during_period` (`statistic_ids: [...]`), mises en cache séparément puis **additionnées heure par heure** ; une heure est considérée présente dès qu'une entité a une valeur.
 
 ### 6.3 Stack
 
@@ -321,7 +318,7 @@ Le moteur de calcul (`packages/core`) est **pur et sans I/O** : entrées = séri
 | API tierce publique (`api-couleur-tempo.fr`) | aucune clé, historique complet | dépendance à un tiers non contractuel |
 | CSV manuel | toujours possible | saisie utilisateur |
 
-**Décision** : API RTE par défaut ; entité HA et CSV en repli ; API tierce non retenue.
+**Décision** : API RTE par défaut ; CSV en repli ; entité HA et API tierce non retenues (v0.3).
 
 Détail de l'appel RTE : `POST /token/oauth/` (client credentials, jeton valable ~2 h, mis en cache) puis `GET /open_api/tempo_like_supply_contract/v1/tempo_like_calendars?start_date=…&end_date=…` par tranches de 366 jours maximum. Les dates sont exprimées avec l'heure de bascule 06:00 ; le backend ne garde que la date civile de début.
 
@@ -330,14 +327,14 @@ Le backend normalise toutes les sources vers la table `tempo_days(date, color, s
 ### 6.5 Modèle de données (SQLite)
 
 ```
-settings          (id=1, ha_url, ha_token_enc, entity_id, tempo_entity_id,
+settings          (id=1, ha_url, ha_token_enc, entity_ids (JSON),
                    subscribed_power_kva, tempo_source, rte_client_id, rte_secret_enc,
                    current_option, smoothing_ref_days=3, smoothing_search_window_days=14,
                    color_switch_hour=6, updated_at)
 tariffs           (option ∈ base|hphc|tempo, valid_from, subscription_yearly,
                    price_json)              -- {base} | {hp,hc} | {blue_hp,blue_hc,...}
 offpeak_ranges    (id, tariff_set ∈ hphc|tempo, start_min, end_min)   -- minutes depuis 00:00
-consumption_hours (start_utc PK, kwh, source_sum, fetched_at)          -- cache HA
+consumption_hours (statistic_id, start_utc) PK, kwh, source_sum, fetched_at)  -- cache HA, une ligne par entité ; additionnées à la lecture
 tempo_days        (date PK, color ∈ blue|white|red, source, fetched_at)
 ```
 
@@ -386,7 +383,7 @@ Le cache `consumption_hours` est invalidé pour les **7 derniers jours** à chaq
 | 0 | Squelette monorepo, Docker, CI (lint + tests) | image qui démarre |
 | 1 | `packages/core` : modèle de grille, affectation HP/HC, calcul des 3 options, tests §5.6 | moteur testé |
 | 2 | Backend : settings, chiffrement, client HA, sync cache conso, entités | `/api/simulate` fonctionnel avec couleurs Tempo en CSV |
-| 3 | Sources Tempo (API RTE, entité HA en repli) | couleurs automatiques |
+| 3 | Sources Tempo (API RTE ; CSV en repli) | couleurs automatiques |
 | 4 | Front : écran de configuration | config complète |
 | 5 | Front : écran principal, cartes comparatives, graphique avec zoom | V1 utilisable |
 | 6 | Lissage jours rouges (core + UI + superposition graphique) | fonctionnalité complète |
@@ -404,6 +401,8 @@ Le cache `consumption_hours` est invalidé pour les **7 derniers jours** à chaq
 | 6 | Puissance souscrite | **Simple clé de saisie**, pas de simulation de changement de puissance. |
 | 7 | Déploiement | **Conteneur autonome** ; pas d'add-on HA. |
 | 8 | Authentification | **Aucune** en V1 ; usage LAN, avertissement README. |
+| 9 | Entités de consommation multiples (v0.3) | **Validé.** Une ou plusieurs entités additionnées heure par heure (index HP + index HC séparés). |
+| 10 | Source « entité HA » pour les couleurs Tempo (v0.3) | **Abandonnée.** Sources conservées : API RTE (défaut) et CSV. |
 
 Aucune question ouverte restante : la spec est prête pour le lot 0.
 
