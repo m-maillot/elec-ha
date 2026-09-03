@@ -109,6 +109,7 @@ describe('SettingsPage', () => {
         ok: true,
         version: '2026.8.1',
         eligibleEntities: 2,
+        totalStatistics: 40,
         entities: [
           { statisticId: 'sensor.linky_hp', name: 'Index HP', unit: 'kWh', source: 'recorder' },
           { statisticId: 'sensor.linky_hc', name: 'Index HC', unit: 'kWh', source: 'recorder' },

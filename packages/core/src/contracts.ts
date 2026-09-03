@@ -86,6 +86,8 @@ export interface HaEntityDto {
 
 export interface HaEntitiesResponse {
   entities: HaEntityDto[];
+  /** Nombre total de statistiques exposées par le recorder (diagnostic). */
+  totalStatistics: number;
 }
 
 export interface HaTestResponse extends HaEntitiesResponse {

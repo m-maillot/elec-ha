@@ -2,7 +2,7 @@ import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import type { HaEntitiesResponse, HaTestResponse } from '@elec-ha/core';
 import { badRequest, notConfigured } from '../errors.js';
 import { normalizeUrl } from '../settings/repository.js';
-import { HaClient, isEligibleEnergyStatistic } from './client.js';
+import { HaClient, isEligibleEnergyStatistic, statisticUnit } from './client.js';
 import { HaTestSchema } from '../schemas.js';
 
 async function collectEntities(ha: HaClient): Promise<HaEntitiesResponse> {
@@ -13,11 +13,11 @@ async function collectEntities(ha: HaClient): Promise<HaEntitiesResponse> {
       .map((s) => ({
         statisticId: s.statistic_id,
         name: s.name,
-        unit: s.unit_of_measurement ?? '',
+        unit: statisticUnit(s),
         source: s.source,
       }))
       .sort((a, b) => a.statisticId.localeCompare(b.statisticId));
-    return { entities };
+    return { entities, totalStatistics: stats.length };
   });
 }
 

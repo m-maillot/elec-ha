@@ -32,8 +32,8 @@ export const t = {
       tokenPlaceholder: 'Collez le token ici',
       testButton: 'Tester la connexion',
       testing: 'Test en cours…',
-      testOk: (version: string, n: number) =>
-        `Connecté à Home Assistant ${version} – ${n} entité(s) éligible(s).`,
+      testOk: (version: string, n: number, total: number) =>
+        `Connecté à Home Assistant ${version} – ${n} entité(s) éligible(s) sur ${total} statistique(s).`,
       entities: 'Entités de consommation',
       entitiesHelp:
         'Cochez une ou plusieurs entités (statistiques long terme en kWh / Wh). Plusieurs entités sont additionnées heure par heure, par exemple un index HP et un index HC.',

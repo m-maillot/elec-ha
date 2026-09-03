@@ -40,8 +40,8 @@ export function HaConnectionSection({ settings }: { settings: SettingsDto }) {
     setTestError(null);
     try {
       const r = await api.testHa({ url, ...(token ? { token } : {}) });
-      setTested({ entities: r.entities });
-      setTestResult(s.testOk(r.version, r.eligibleEntities));
+      setTested({ entities: r.entities, totalStatistics: r.totalStatistics });
+      setTestResult(s.testOk(r.version, r.eligibleEntities, r.totalStatistics));
     } catch (err) {
       setTestError(errorMessage(err));
     } finally {
