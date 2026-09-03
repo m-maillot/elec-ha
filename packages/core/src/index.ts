@@ -14,3 +14,4 @@ export { LocalClock, DEFAULT_ZONE, type LocalInstant } from './time.js';
 export * from './offpeak.js';
 export * from './tariffs.js';
 export * from './simulate.js';
+export * from './contracts.js';
