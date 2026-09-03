@@ -1,0 +1,13 @@
+services:
+  elec-ha:
+    build: .
+    image: elec-ha:local
+    container_name: elec-ha
+    restart: unless-stopped
+    ports:
+      - '${PORT:-3000}:3000'
+    environment:
+      APP_SECRET: ${APP_SECRET:?APP_SECRET est obligatoire (voir .env.example)}
+      TZ: ${TZ:-Europe/Paris}
+    volumes:
+      - ./data:/data
