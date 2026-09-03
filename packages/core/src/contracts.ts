@@ -158,6 +158,29 @@ export interface TempoCsvImportResult {
   errors: string[];
 }
 
+/** Résultat de la complétion automatique des couleurs Tempo lors d'une sync. */
+export interface TempoCompletionResult {
+  /** Source utilisée (`null` si aucune source automatique n'est configurée). */
+  source: TempoSource | null;
+  fetched: number;
+  /** Dates de la période encore inconnues après complétion. */
+  missing: number;
+  /** Message d'erreur si la source a échoué (la sync de consommation reste valide). */
+  error?: string;
+}
+
+export interface RteTestRequest {
+  clientId?: string;
+  /** Absent = secret déjà stocké. */
+  clientSecret?: string;
+}
+
+export interface RteTestResponse {
+  ok: true;
+  date: string;
+  color: TempoColor | null;
+}
+
 export type SyncEvent =
   | {
       type: 'progress';
@@ -169,7 +192,7 @@ export type SyncEvent =
   | {
       type: 'done';
       consumption: { chunks: number; hoursStored: number; daysRequested: number };
-      tempo: { fetched: number; missing: number };
+      tempo: TempoCompletionResult;
       lastSyncAt: string;
     }
   | { type: 'error'; code: string; message: string };

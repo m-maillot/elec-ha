@@ -4,12 +4,18 @@ import { ApiError, badRequest, notConfigured } from '../errors.js';
 import { HaClient } from '../ha/client.js';
 import { PeriodQuerySchema } from '../schemas.js';
 import { syncConsumption } from './sync.js';
+import { completeTempoDays } from '../tempo/sources.js';
+
+export interface DataRoutesOptions {
+  /** URL de base RTE injectable (tests). */
+  rteBaseUrl?: string;
+}
 
 /**
- * `POST /api/data/sync?from&to` : charge/complète le cache et diffuse la progression en SSE.
- * Les couleurs Tempo sont complétées ici à partir du lot 3.
+ * `POST /api/data/sync?from&to` : charge/complète le cache de consommation puis les
+ * couleurs Tempo, et diffuse la progression en SSE.
  */
-export const dataRoutes: FastifyPluginAsyncTypebox = async (app) => {
+export const dataRoutes: FastifyPluginAsyncTypebox<DataRoutesOptions> = async (app, opts) => {
   app.post('/api/data/sync', { schema: { querystring: PeriodQuerySchema } }, async (req, reply) => {
     const { from, to } = req.query;
     if (from > to) throw badRequest('La date de début doit précéder la date de fin.');
@@ -39,9 +45,18 @@ export const dataRoutes: FastifyPluginAsyncTypebox = async (app) => {
         onProgress: (done, total, message) =>
           send({ type: 'progress', step: 'consumption', done, total, message }),
       });
+      const tempo = await completeTempoDays({
+        db: app.ctx.db,
+        clock: app.ctx.clock,
+        settings: app.ctx.settings,
+        from,
+        to,
+        ...(opts.rteBaseUrl ? { rteBaseUrl: opts.rteBaseUrl } : {}),
+        onProgress: (done, total, message) => send({ type: 'progress', step: 'tempo', done, total, message }),
+      });
       const lastSyncAt = new Date().toISOString();
       app.ctx.settings.setLastSyncAt(lastSyncAt);
-      send({ type: 'done', consumption, tempo: { fetched: 0, missing: 0 }, lastSyncAt });
+      send({ type: 'done', consumption, tempo, lastSyncAt });
     } catch (err) {
       req.log.error(err);
       const code = err instanceof ApiError ? err.code : 'sync_failed';

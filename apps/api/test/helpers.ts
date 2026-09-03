@@ -5,11 +5,12 @@ import { openDatabase } from '../src/db/index.js';
 
 export const APP_SECRET = 'test-secret-with-enough-length';
 
-export async function testApp(): Promise<FastifyInstance> {
+export async function testApp(options: { rteBaseUrl?: string } = {}): Promise<FastifyInstance> {
   return buildApp({
     config: { appSecret: APP_SECRET, webDistDir: undefined },
     db: openDatabase(':memory:'),
     logger: false,
+    ...options,
   });
 }
 
