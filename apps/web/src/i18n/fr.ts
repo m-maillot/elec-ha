@@ -34,13 +34,12 @@ export const t = {
       testing: 'Test en cours…',
       testOk: (version: string, n: number) =>
         `Connecté à Home Assistant ${version} – ${n} entité(s) éligible(s).`,
-      entity: 'Entité de consommation',
-      entityHelp:
-        'Entités avec statistiques long terme en kWh / Wh (state_class total ou total_increasing).',
-      entityNone: '— Choisir une entité —',
-      entitiesEmpty: 'Testez la connexion pour lister les entités.',
-      tempoEntity: 'Entité couleur Tempo (optionnelle)',
-      tempoEntityNone: '— Aucune —',
+      entities: 'Entités de consommation',
+      entitiesHelp:
+        'Cochez une ou plusieurs entités (statistiques long terme en kWh / Wh). Plusieurs entités sont additionnées heure par heure, par exemple un index HP et un index HC.',
+      entitiesEmpty: 'Testez la connexion pour lister les entités éligibles.',
+      entitiesSelected: (n: number) => `${n} entité(s) sélectionnée(s)`,
+      entitiesNone: 'Aucune entité sélectionnée : la synchronisation ne pourra pas démarrer.',
     },
     tariff: {
       title: 'Puissance souscrite et grille tarifaire',
@@ -83,7 +82,6 @@ export const t = {
       source: 'Source',
       sources: {
         rte: 'API RTE (recommandé)',
-        ha_entity: 'Entité Home Assistant (intégration RTE Tempo)',
         csv: 'Import CSV uniquement',
       },
       clientId: 'client_id',
@@ -94,7 +92,6 @@ export const t = {
         color
           ? `Jeton obtenu – couleur du ${date} : ${color}.`
           : `Jeton obtenu – couleur du ${date} non publiée.`,
-      haEntityHelp: 'Choisissez l’entité couleur dans la section Home Assistant ci-dessus.',
       csv: {
         title: 'Import CSV (mode de secours)',
         help: 'Une ligne par jour : date;couleur (ex. 2026-01-15;rouge). Formats acceptés : AAAA-MM-JJ ou JJ/MM/AAAA, bleu/blanc/rouge.',

@@ -1,8 +1,8 @@
-import { and, gte, lt } from 'drizzle-orm';
+import { and, gte, inArray, lt } from 'drizzle-orm';
 import { addDays, eachDay, compareDates, LocalClock } from '@elec-ha/core';
 import type { Db } from '../db/index.js';
 import { consumptionHours } from '../db/schema.js';
-import type { HaClient } from '../ha/client.js';
+import type { HaClient, HaStatBucket } from '../ha/client.js';
 
 /** Taille maximale d'une tranche demandée à HA (jours). Réf. spec §6.2. */
 export const CHUNK_DAYS = 31;
@@ -13,7 +13,8 @@ export interface SyncConsumptionParams {
   db: Db;
   clock: LocalClock;
   ha: HaClient;
-  statisticId: string;
+  /** Entités additionnées (ex. index HP + index HC). */
+  statisticIds: readonly string[];
   from: string;
   to: string;
   /** Date du jour (locale), injectable pour les tests. */
@@ -56,10 +57,14 @@ export function planChunks(days: readonly string[], maxDays = CHUNK_DAYS): DayRa
   return chunks;
 }
 
-/** Jours de `[from, to]` à (re)charger : incomplets dans le cache ou parmi les 7 derniers jours. */
+/**
+ * Jours de `[from, to]` à (re)charger : incomplets dans le cache pour au moins une entité,
+ * ou parmi les 7 derniers jours.
+ */
 export function selectDaysToFetch(
   db: Db,
   clock: LocalClock,
+  statisticIds: readonly string[],
   from: string,
   to: string,
   today: string,
@@ -67,37 +72,48 @@ export function selectDaysToFetch(
   const startMs = clock.localMidnightUtcMs(from);
   const endMs = clock.localMidnightUtcMs(addDays(to, 1));
   const rows = db
-    .select({ startUtc: consumptionHours.startUtc })
+    .select({ statisticId: consumptionHours.statisticId, startUtc: consumptionHours.startUtc })
     .from(consumptionHours)
-    .where(and(gte(consumptionHours.startUtc, startMs), lt(consumptionHours.startUtc, endMs)))
+    .where(
+      and(
+        inArray(consumptionHours.statisticId, [...statisticIds]),
+        gte(consumptionHours.startUtc, startMs),
+        lt(consumptionHours.startUtc, endMs),
+      ),
+    )
     .all();
+  // Nombre d'heures présentes par (entité, jour local)
   const perDay = new Map<string, number>();
   for (const r of rows) {
-    const d = clock.toLocal(r.startUtc).date;
-    perDay.set(d, (perDay.get(d) ?? 0) + 1);
+    const key = `${r.statisticId}|${clock.toLocal(r.startUtc).date}`;
+    perDay.set(key, (perDay.get(key) ?? 0) + 1);
   }
   const refreshFrom = addDays(today, -(REFRESH_LAST_DAYS - 1));
   return eachDay(from, to).filter(
-    (d) => compareDates(d, refreshFrom) >= 0 || (perDay.get(d) ?? 0) < clock.hoursInDay(d),
+    (d) =>
+      compareDates(d, refreshFrom) >= 0 ||
+      statisticIds.some((id) => (perDay.get(`${id}|${d}`) ?? 0) < clock.hoursInDay(d)),
   );
 }
 
 export async function syncConsumption(params: SyncConsumptionParams): Promise<SyncConsumptionResult> {
-  const { db, clock, ha, statisticId, from, to, onProgress } = params;
+  const { db, clock, ha, statisticIds, from, to, onProgress } = params;
   const today = params.today ?? clock.toLocal(Date.now()).date;
-  const days = selectDaysToFetch(db, clock, from, to, today);
+  const days = selectDaysToFetch(db, clock, statisticIds, from, to, today);
   const chunks = planChunks(days);
   let hoursStored = 0;
 
-  if (chunks.length > 0) {
+  if (chunks.length > 0 && statisticIds.length > 0) {
     await ha.withConnection(async (conn) => {
       for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i]!;
         onProgress?.(i, chunks.length, `Chargement du ${chunk.from} au ${chunk.to}`);
         const startMs = clock.localMidnightUtcMs(chunk.from);
         const endMs = clock.localMidnightUtcMs(addDays(chunk.to, 1));
-        const buckets = await ha.statisticsDuringPeriod(conn, statisticId, startMs, endMs);
-        hoursStored += storeBuckets(db, buckets, startMs, endMs);
+        const byEntity = await ha.statisticsDuringPeriod(conn, statisticIds, startMs, endMs);
+        for (const id of statisticIds) {
+          hoursStored += storeBuckets(db, id, byEntity[id] ?? [], startMs, endMs);
+        }
         onProgress?.(i + 1, chunks.length, `Tranche ${i + 1}/${chunks.length} chargée`);
       }
     });
@@ -113,7 +129,8 @@ export async function syncConsumption(params: SyncConsumptionParams): Promise<Sy
  */
 export function storeBuckets(
   db: Db,
-  buckets: readonly { start: number; sum: number | null; change: number | null }[],
+  statisticId: string,
+  buckets: readonly Pick<HaStatBucket, 'start' | 'sum' | 'change'>[],
   startMs: number,
   endMs: number,
 ): number {
@@ -125,7 +142,13 @@ export function storeBuckets(
     const prev = db
       .select({ sum: consumptionHours.sourceSum })
       .from(consumptionHours)
-      .where(and(gte(consumptionHours.startUtc, first.start - 3_600_000), lt(consumptionHours.startUtc, first.start)))
+      .where(
+        and(
+          inArray(consumptionHours.statisticId, [statisticId]),
+          gte(consumptionHours.startUtc, first.start - 3_600_000),
+          lt(consumptionHours.startUtc, first.start),
+        ),
+      )
       .get();
     prevSum = prev?.sum ?? null;
   }
@@ -137,7 +160,7 @@ export function storeBuckets(
     if (kwh === null && b.sum !== null && prevSum !== null) kwh = b.sum - prevSum;
     if (b.sum !== null) prevSum = b.sum;
     if (kwh === null) continue;
-    rows.push({ startUtc: b.start, kwh, sourceSum: b.sum, fetchedAt });
+    rows.push({ statisticId, startUtc: b.start, kwh, sourceSum: b.sum, fetchedAt });
   }
 
   if (rows.length > 0) {
@@ -146,7 +169,7 @@ export function storeBuckets(
         tx.insert(consumptionHours)
           .values(row)
           .onConflictDoUpdate({
-            target: consumptionHours.startUtc,
+            target: [consumptionHours.statisticId, consumptionHours.startUtc],
             set: { kwh: row.kwh, sourceSum: row.sourceSum, fetchedAt },
           })
           .run();

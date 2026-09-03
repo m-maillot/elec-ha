@@ -1,8 +1,10 @@
 CREATE TABLE `consumption_hours` (
-	`start_utc` integer PRIMARY KEY NOT NULL,
+	`statistic_id` text NOT NULL,
+	`start_utc` integer NOT NULL,
 	`kwh` real NOT NULL,
 	`source_sum` real,
-	`fetched_at` text NOT NULL
+	`fetched_at` text NOT NULL,
+	PRIMARY KEY(`statistic_id`, `start_utc`)
 );
 --> statement-breakpoint
 CREATE TABLE `offpeak_ranges` (
@@ -16,8 +18,7 @@ CREATE TABLE `settings` (
 	`id` integer PRIMARY KEY NOT NULL,
 	`ha_url` text,
 	`ha_token_enc` text,
-	`entity_id` text,
-	`tempo_entity_id` text,
+	`entity_ids` text DEFAULT '[]' NOT NULL,
 	`subscribed_power_kva` integer DEFAULT 6 NOT NULL,
 	`tempo_source` text DEFAULT 'rte' NOT NULL,
 	`rte_client_id` text,

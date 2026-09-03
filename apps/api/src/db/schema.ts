@@ -1,12 +1,12 @@
-import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { integer, primaryKey, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 /** Configuration unique (ligne id = 1). Réf. spec §6.5. */
 export const settings = sqliteTable('settings', {
   id: integer('id').primaryKey(),
   haUrl: text('ha_url'),
   haTokenEnc: text('ha_token_enc'),
-  entityId: text('entity_id'),
-  tempoEntityId: text('tempo_entity_id'),
+  /** JSON : liste des statistic_id additionnés. */
+  entityIds: text('entity_ids').notNull().default('[]'),
   subscribedPowerKva: integer('subscribed_power_kva').notNull().default(6),
   tempoSource: text('tempo_source').notNull().default('rte'),
   rteClientId: text('rte_client_id'),
@@ -35,13 +35,18 @@ export const offpeakRanges = sqliteTable('offpeak_ranges', {
   endMin: integer('end_min').notNull(),
 });
 
-/** Cache des statistiques horaires HA. */
-export const consumptionHours = sqliteTable('consumption_hours', {
-  startUtc: integer('start_utc').primaryKey(),
-  kwh: real('kwh').notNull(),
-  sourceSum: real('source_sum'),
-  fetchedAt: text('fetched_at').notNull(),
-});
+/** Cache des statistiques horaires HA, une ligne par entité et par heure. */
+export const consumptionHours = sqliteTable(
+  'consumption_hours',
+  {
+    statisticId: text('statistic_id').notNull(),
+    startUtc: integer('start_utc').notNull(),
+    kwh: real('kwh').notNull(),
+    sourceSum: real('source_sum'),
+    fetchedAt: text('fetched_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.statisticId, t.startUtc] })],
+);
 
 export const tempoDays = sqliteTable('tempo_days', {
   date: text('date').primaryKey(),

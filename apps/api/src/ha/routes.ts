@@ -7,7 +7,7 @@ import { HaTestSchema } from '../schemas.js';
 
 async function collectEntities(ha: HaClient): Promise<HaEntitiesResponse> {
   return ha.withConnection(async (conn) => {
-    const [stats, states] = await Promise.all([ha.listStatisticIds(conn), ha.getStates(conn)]);
+    const stats = await ha.listStatisticIds(conn);
     const entities = stats
       .filter(isEligibleEnergyStatistic)
       .map((s) => ({
@@ -17,16 +17,7 @@ async function collectEntities(ha: HaClient): Promise<HaEntitiesResponse> {
         source: s.source,
       }))
       .sort((a, b) => a.statisticId.localeCompare(b.statisticId));
-    const tempoEntities = states
-      .filter((s) => s.entity_id.startsWith('sensor.') && /tempo/i.test(s.entity_id))
-      .map((s) => ({
-        entityId: s.entity_id,
-        name:
-          typeof s.attributes['friendly_name'] === 'string' ? s.attributes['friendly_name'] : null,
-        state: s.state,
-      }))
-      .sort((a, b) => a.entityId.localeCompare(b.entityId));
-    return { entities, tempoEntities };
+    return { entities };
   });
 }
 

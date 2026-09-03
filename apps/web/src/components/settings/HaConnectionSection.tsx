@@ -15,7 +15,7 @@ import {
   CardTitle,
 } from '../ui/card.js';
 import { Field } from '../ui/field.js';
-import { Input, Select } from '../ui/input.js';
+import { Input } from '../ui/input.js';
 import { SaveBar } from './SaveBar.js';
 import { useSave } from './useSave.js';
 
@@ -24,8 +24,7 @@ const s = t.settings.ha;
 export function HaConnectionSection({ settings }: { settings: SettingsDto }) {
   const [url, setUrl] = useState(settings.ha.url ?? '');
   const [token, setToken] = useState('');
-  const [entityId, setEntityId] = useState(settings.ha.entityId ?? '');
-  const [tempoEntityId, setTempoEntityId] = useState(settings.ha.tempoEntityId ?? '');
+  const [entityIds, setEntityIds] = useState<string[]>(settings.ha.entityIds);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
@@ -41,7 +40,7 @@ export function HaConnectionSection({ settings }: { settings: SettingsDto }) {
     setTestError(null);
     try {
       const r = await api.testHa({ url, ...(token ? { token } : {}) });
-      setTested({ entities: r.entities, tempoEntities: r.tempoEntities });
+      setTested({ entities: r.entities });
       setTestResult(s.testOk(r.version, r.eligibleEntities));
     } catch (err) {
       setTestError(errorMessage(err));
@@ -52,22 +51,16 @@ export function HaConnectionSection({ settings }: { settings: SettingsDto }) {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    const ok = await save({
-      ha: {
-        url,
-        ...(token ? { token } : {}),
-        entityId: entityId || null,
-        tempoEntityId: tempoEntityId || null,
-      },
-    });
+    const ok = await save({ ha: { url, ...(token ? { token } : {}), entityIds } });
     if (ok) setToken('');
   }
 
-  const entityOptions = lists?.entities ?? [];
-  const tempoOptions = lists?.tempoEntities ?? [];
-  // Conserve l'entité déjà choisie même si la liste n'est pas (encore) chargée.
-  const knownEntity = entityId && !entityOptions.some((e) => e.statisticId === entityId);
-  const knownTempo = tempoEntityId && !tempoOptions.some((e) => e.entityId === tempoEntityId);
+  const toggle = (id: string, checked: boolean) =>
+    setEntityIds((ids) => (checked ? [...new Set([...ids, id])] : ids.filter((x) => x !== id)));
+
+  // Entités déjà sélectionnées mais absentes de la liste (liste non chargée ou entité disparue).
+  const listed = new Set((lists?.entities ?? []).map((e) => e.statisticId));
+  const orphans = entityIds.filter((id) => !listed.has(id));
 
   return (
     <Card>
@@ -131,38 +124,37 @@ export function HaConnectionSection({ settings }: { settings: SettingsDto }) {
               </Alert>
             )}
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field id="ha-entity" label={s.entity} help={lists ? s.entityHelp : s.entitiesEmpty}>
-              <Select id="ha-entity" value={entityId} onChange={(e) => setEntityId(e.target.value)}>
-                <option value="">{s.entityNone}</option>
-                {knownEntity && <option value={entityId}>{entityId}</option>}
-                {entityOptions.map((e) => (
-                  <option key={e.statisticId} value={e.statisticId}>
-                    {e.name
-                      ? `${e.name} (${e.statisticId}, ${e.unit})`
-                      : `${e.statisticId} (${e.unit})`}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field id="ha-tempo-entity" label={s.tempoEntity}>
-              <Select
-                id="ha-tempo-entity"
-                value={tempoEntityId}
-                onChange={(e) => setTempoEntityId(e.target.value)}
-              >
-                <option value="">{s.tempoEntityNone}</option>
-                {knownTempo && <option value={tempoEntityId}>{tempoEntityId}</option>}
-                {tempoOptions.map((e) => (
-                  <option key={e.entityId} value={e.entityId}>
-                    {e.name
-                      ? `${e.name} (${e.entityId}) – ${e.state}`
-                      : `${e.entityId} – ${e.state}`}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          </div>
+
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-1 text-sm font-medium text-slate-700">{s.entities}</legend>
+            <p className="text-xs text-slate-500">{lists ? s.entitiesHelp : s.entitiesEmpty}</p>
+            {orphans.map((id) => (
+              <label key={id} className="inline-flex items-center gap-2 text-sm">
+                <input type="checkbox" checked onChange={(e) => toggle(id, e.target.checked)} />
+                <code className="text-xs">{id}</code>
+              </label>
+            ))}
+            <div className="grid gap-1 md:grid-cols-2">
+              {(lists?.entities ?? []).map((e) => (
+                <label key={e.statisticId} className="inline-flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={entityIds.includes(e.statisticId)}
+                    onChange={(ev) => toggle(e.statisticId, ev.target.checked)}
+                  />
+                  <span>
+                    {e.name ?? e.statisticId}{' '}
+                    <span className="text-xs text-slate-500">
+                      ({e.statisticId}, {e.unit})
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-slate-500">
+              {entityIds.length > 0 ? s.entitiesSelected(entityIds.length) : s.entitiesNone}
+            </p>
+          </fieldset>
         </CardContent>
         <CardFooter>
           <SaveBar saving={saving} saved={saved} error={error} />

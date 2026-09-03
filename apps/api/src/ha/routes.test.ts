@@ -42,14 +42,6 @@ describe('/api/ha/test', () => {
           source: 'recorder',
         },
       ],
-      states: [
-        {
-          entity_id: 'sensor.rte_tempo_couleur_actuelle',
-          state: 'Bleu',
-          attributes: { friendly_name: 'Couleur du jour' },
-        },
-        { entity_id: 'sensor.other', state: '1', attributes: {} },
-      ],
     });
   });
   afterEach(async () => {
@@ -69,9 +61,6 @@ describe('/api/ha/test', () => {
     expect(body.entities.map((e: { statisticId: string }) => e.statisticId)).toEqual([
       'sensor.energy',
       'sensor.energy_wh',
-    ]);
-    expect(body.tempoEntities).toEqual([
-      { entityId: 'sensor.rte_tempo_couleur_actuelle', name: 'Couleur du jour', state: 'Bleu' },
     ]);
   });
 

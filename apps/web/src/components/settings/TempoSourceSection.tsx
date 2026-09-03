@@ -153,12 +153,6 @@ export function TempoSourceSection({ settings }: { settings: SettingsDto }) {
             </div>
           )}
 
-          {source === 'ha_entity' && (
-            <Alert variant={settings.ha.tempoEntityId ? 'info' : 'warning'}>
-              {settings.ha.tempoEntityId ? `Entité : ${settings.ha.tempoEntityId}` : s.haEntityHelp}
-            </Alert>
-          )}
-
           <div className="flex flex-col gap-3 rounded-md border border-slate-200 p-4">
             <h3 className="text-sm font-semibold">{s.csv.title}</h3>
             <p className="text-xs text-slate-500">{s.csv.help}</p>

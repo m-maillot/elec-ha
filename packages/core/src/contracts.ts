@@ -11,15 +11,18 @@ import type {
   TempoColor,
 } from './types.js';
 
-export type TempoSource = 'rte' | 'ha_entity' | 'csv';
-export const TEMPO_SOURCES: readonly TempoSource[] = ['rte', 'ha_entity', 'csv'];
+export type TempoSource = 'rte' | 'csv';
+export const TEMPO_SOURCES: readonly TempoSource[] = ['rte', 'csv'];
 
 export interface HaSettingsDto {
   url: string | null;
   /** Le token n'est jamais renvoyé, seulement « défini : oui/non ». */
   tokenSet: boolean;
-  entityId: string | null;
-  tempoEntityId: string | null;
+  /**
+   * Entités de consommation (statistic_id). Plusieurs entités sont additionnées heure par
+   * heure, par exemple un index HP et un index HC issus du Linky.
+   */
+  entityIds: string[];
 }
 
 export interface TempoSettingsDto {
@@ -43,7 +46,7 @@ export interface SettingsDto {
   offpeak: OffpeakSets;
   tempo: TempoSettingsDto;
   advanced: AdvancedSettingsDto;
-  /** `true` si HA (URL, token, entité) et la grille sont renseignés. */
+  /** `true` si HA (URL, token, au moins une entité) et la grille sont renseignés. */
   configured: boolean;
   lastSyncAt: string | null;
   updatedAt: string | null;
@@ -54,8 +57,7 @@ export interface SettingsUpdateDto {
   ha?: {
     url?: string;
     token?: string;
-    entityId?: string | null;
-    tempoEntityId?: string | null;
+    entityIds?: string[];
   };
   subscribedPowerKva?: SubscribedPower;
   currentOption?: TariffOption;
@@ -82,15 +84,8 @@ export interface HaEntityDto {
   source: string;
 }
 
-export interface HaTempoEntityDto {
-  entityId: string;
-  name: string | null;
-  state: string;
-}
-
 export interface HaEntitiesResponse {
   entities: HaEntityDto[];
-  tempoEntities: HaTempoEntityDto[];
 }
 
 export interface HaTestResponse extends HaEntitiesResponse {

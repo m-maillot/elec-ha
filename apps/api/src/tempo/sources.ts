@@ -10,9 +10,7 @@ import {
 } from '@elec-ha/core';
 import type { Db } from '../db/index.js';
 import { tempoDays } from '../db/schema.js';
-import { HaClient } from '../ha/client.js';
 import type { SettingsRepository } from '../settings/repository.js';
-import { fetchTempoFromHaEntity } from './ha-entity.js';
 import { RteTempoClient } from './rte.js';
 
 export interface CompleteTempoParams {
@@ -111,18 +109,6 @@ export async function completeTempoDays(
         const r = ranges[i]!;
         onProgress?.(i, ranges.length, `Couleurs Tempo RTE du ${r.from} au ${r.to}`);
         fetched += storeTempoDays(db, await rte.fetchCalendar(r.from, r.to), 'rte');
-      }
-    } else {
-      const conn = settings.getHaConnection();
-      if (!conn || !dto.ha.tempoEntityId) {
-        return done(0, 'Entité couleur Tempo Home Assistant non configurée.');
-      }
-      const ha = new HaClient(conn.url, conn.token);
-      for (let i = 0; i < ranges.length; i++) {
-        const r = ranges[i]!;
-        onProgress?.(i, ranges.length, `Couleurs Tempo (entité HA) du ${r.from} au ${r.to}`);
-        const colors = await fetchTempoFromHaEntity(ha, clock, dto.ha.tempoEntityId, r.from, r.to);
-        fetched += storeTempoDays(db, colors, 'ha_entity');
       }
     }
     onProgress?.(ranges.length, ranges.length, 'Couleurs Tempo complétées');

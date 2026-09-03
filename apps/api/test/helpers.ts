@@ -17,13 +17,13 @@ export async function testApp(options: { rteBaseUrl?: string } = {}): Promise<Fa
 /** Configure HA + grille 6 kVA + créneaux 22h–6h. */
 export async function configure(
   app: FastifyInstance,
-  ha: { url: string; token: string; entityId?: string },
+  ha: { url: string; token: string; entityIds?: string[] },
 ): Promise<void> {
   const res = await app.inject({
     method: 'PUT',
     url: '/api/settings',
     payload: {
-      ha: { url: ha.url, token: ha.token, entityId: ha.entityId ?? 'sensor.energy' },
+      ha: { url: ha.url, token: ha.token, entityIds: ha.entityIds ?? ['sensor.energy'] },
       subscribedPowerKva: 6,
       currentOption: 'base',
       grid: TARIF_BLEU_2026_08[6],

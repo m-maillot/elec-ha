@@ -15,7 +15,7 @@ describe('/api/settings', () => {
     const body = res.json();
     expect(body.configured).toBe(false);
     expect(body.grid).toBeNull();
-    expect(body.ha).toEqual({ url: null, tokenSet: false, entityId: null, tempoEntityId: null });
+    expect(body.ha).toEqual({ url: null, tokenSet: false, entityIds: [] });
     expect(body.offpeak).toEqual({ hphc: [], tempo: [{ startMin: 1320, endMin: 360 }] });
     expect(body.advanced).toEqual({
       colorSwitchHour: 6,
@@ -33,7 +33,7 @@ describe('/api/settings', () => {
         ha: {
           url: 'http://homeassistant.local:8123/',
           token: 'TOKEN-XYZ',
-          entityId: 'sensor.energy',
+          entityIds: ['sensor.linky_hp', 'sensor.linky_hc', 'sensor.linky_hp'],
         },
         grid: TARIF_BLEU_2026_08[6],
         tempo: { rteClientId: 'cid', rteClientSecret: 'RTE-SECRET-XYZ' },
@@ -50,8 +50,7 @@ describe('/api/settings', () => {
     expect(body.ha).toEqual({
       url: 'http://homeassistant.local:8123',
       tokenSet: true,
-      entityId: 'sensor.energy',
-      tempoEntityId: null,
+      entityIds: ['sensor.linky_hp', 'sensor.linky_hc'],
     });
     expect(body.tempo).toEqual({ source: 'rte', rteClientId: 'cid', rteSecretSet: true });
     expect(body.grid.tempo.prices.redHp).toBe(0.7295);

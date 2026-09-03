@@ -100,8 +100,7 @@ export class SettingsRepository {
       ha: {
         url: r.haUrl,
         tokenSet: r.haTokenEnc !== null,
-        entityId: r.entityId,
-        tempoEntityId: r.tempoEntityId,
+        entityIds: parseEntityIds(r.entityIds),
       },
       subscribedPowerKva: r.subscribedPowerKva as SubscribedPower,
       currentOption: r.currentOption as TariffOption,
@@ -117,7 +116,11 @@ export class SettingsRepository {
         smoothingRefDays: r.smoothingRefDays,
         smoothingSearchWindowDays: r.smoothingSearchWindowDays,
       },
-      configured: r.haUrl !== null && r.haTokenEnc !== null && r.entityId !== null && grid !== null,
+      configured:
+        r.haUrl !== null &&
+        r.haTokenEnc !== null &&
+        parseEntityIds(r.entityIds).length > 0 &&
+        grid !== null,
       lastSyncAt: r.lastSyncAt,
       updatedAt: r.updatedAt,
     };
@@ -131,11 +134,15 @@ export class SettingsRepository {
     };
   }
 
-  /** Connexion HA effective (URL, token, entité) ou `null` si incomplète. */
-  getHaConnection(): { url: string; token: string; entityId: string | null } | null {
+  /** Connexion HA effective (URL, token, entités) ou `null` si incomplète. */
+  getHaConnection(): { url: string; token: string; entityIds: string[] } | null {
     const r = this.row();
     if (!r.haUrl || !r.haTokenEnc) return null;
-    return { url: r.haUrl, token: this.cipher.decrypt(r.haTokenEnc), entityId: r.entityId };
+    return {
+      url: r.haUrl,
+      token: this.cipher.decrypt(r.haTokenEnc),
+      entityIds: parseEntityIds(r.entityIds),
+    };
   }
 
   getSimulationSettings(): SimulationSettings | null {
@@ -164,8 +171,10 @@ export class SettingsRepository {
       if (patch.ha.token !== undefined) {
         values.haTokenEnc = patch.ha.token === '' ? null : this.cipher.encrypt(patch.ha.token);
       }
-      if (patch.ha.entityId !== undefined) values.entityId = patch.ha.entityId;
-      if (patch.ha.tempoEntityId !== undefined) values.tempoEntityId = patch.ha.tempoEntityId;
+      if (patch.ha.entityIds !== undefined) {
+        const ids = [...new Set(patch.ha.entityIds.map((id) => id.trim()).filter(Boolean))];
+        values.entityIds = JSON.stringify(ids);
+      }
     }
     if (patch.subscribedPowerKva !== undefined)
       values.subscribedPowerKva = patch.subscribedPowerKva;
@@ -243,6 +252,15 @@ export class SettingsRepository {
     });
 
     return this.get();
+  }
+}
+
+function parseEntityIds(json: string): string[] {
+  try {
+    const v: unknown = JSON.parse(json);
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
   }
 }
 

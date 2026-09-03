@@ -150,56 +150,6 @@ describe('complétion des couleurs Tempo', () => {
     expect(bad).toMatchObject({ fetched: 0, missing: 2, error: expect.stringMatching(/refusés/) });
   });
 
-  it('source entité HA : déduit la couleur du jour depuis l’historique du sensor', async () => {
-    const t = (date: string, hour: number) =>
-      (clock.localMidnightUtcMs(date) + hour * 3_600_000) / 1000;
-    ha = await startFakeHa({
-      history: () => [
-        {
-          state: 'Bleu',
-          last_updated: new Date(t('2026-01-13', 6) * 1000).toISOString(),
-          attributes: {},
-        },
-        { s: 'Rouge', lu: t('2026-01-15', 6) },
-        { s: 'Inconnu', lu: t('2026-01-16', 6) },
-        { s: 'Blanc', lu: t('2026-01-17', 6) },
-      ],
-    });
-    app = await testApp();
-    await configure(app, ha);
-    await app.inject({
-      method: 'PUT',
-      url: '/api/settings',
-      payload: {
-        ha: { tempoEntityId: 'sensor.rte_tempo_couleur_actuelle' },
-        tempo: { source: 'ha_entity' },
-      },
-    });
-    const r = await completeTempoDays({
-      db: app.ctx.db,
-      clock,
-      settings: app.ctx.settings,
-      from: '2026-01-13',
-      to: '2026-01-17',
-      today: '2026-03-01',
-    });
-    expect(r).toEqual({ source: 'ha_entity', fetched: 5, missing: 1 }); // 12/01 (veille) inconnu : avant le premier état
-    const days = (
-      await app.inject({ method: 'GET', url: '/api/tempo/days?from=2026-01-12&to=2026-01-17' })
-    ).json();
-    expect(days.missing).toEqual(['2026-01-12']);
-    expect(
-      days.days.map((d: { date: string; color: string }) => `${d.date.slice(5)}:${d.color}`),
-    ).toEqual([
-      '01-13:blue',
-      '01-14:blue',
-      '01-15:red',
-      '01-16:red', // « Inconnu » ignoré : la dernière couleur connue reste
-      '01-17:white',
-    ]);
-    expect(days.days[0].source).toBe('ha_entity');
-  });
-
   it('POST /api/data/sync enchaîne consommation puis couleurs', async () => {
     rte = await startFakeRte({ colorOf: () => 'blue' });
     ha = await startFakeHa({ statistics: fakeStatistics(() => 1) });

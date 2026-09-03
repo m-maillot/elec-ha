@@ -5,7 +5,7 @@ import type { SettingsDto } from '@elec-ha/core';
 import { SettingsPage } from './SettingsPage.js';
 
 const defaults: SettingsDto = {
-  ha: { url: null, tokenSet: false, entityId: null, tempoEntityId: null },
+  ha: { url: null, tokenSet: false, entityIds: [] },
   subscribedPowerKva: 6,
   currentOption: 'base',
   grid: null,
@@ -108,11 +108,11 @@ describe('SettingsPage', () => {
       'POST /api/ha/test': () => ({
         ok: true,
         version: '2026.8.1',
-        eligibleEntities: 1,
+        eligibleEntities: 2,
         entities: [
-          { statisticId: 'sensor.energy', name: 'Énergie', unit: 'kWh', source: 'recorder' },
+          { statisticId: 'sensor.linky_hp', name: 'Index HP', unit: 'kWh', source: 'recorder' },
+          { statisticId: 'sensor.linky_hc', name: 'Index HC', unit: 'kWh', source: 'recorder' },
         ],
-        tempoEntities: [],
       }),
     });
     renderPage();
@@ -123,8 +123,12 @@ describe('SettingsPage', () => {
     fireEvent.change(screen.getByLabelText('Token longue durée'), { target: { value: 'tok' } });
     fireEvent.click(screen.getByRole('button', { name: 'Tester la connexion' }));
     expect(await screen.findByText(/Connecté à Home Assistant 2026.8.1/)).toBeInTheDocument();
-    expect(
-      screen.getByRole('option', { name: /Énergie \(sensor.energy, kWh\)/ }),
-    ).toBeInTheDocument();
+    const hp = screen.getByRole('checkbox', { name: /Index HP/ });
+    const hc = screen.getByRole('checkbox', { name: /Index HC/ });
+    fireEvent.click(hp);
+    fireEvent.click(hc);
+    expect(screen.getByText('2 entité(s) sélectionnée(s)')).toBeInTheDocument();
+    fireEvent.click(hp);
+    expect(screen.getByText('1 entité(s) sélectionnée(s)')).toBeInTheDocument();
   });
 });
