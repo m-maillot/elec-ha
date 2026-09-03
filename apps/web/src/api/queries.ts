@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { SettingsDto, SettingsUpdateDto } from '@elec-ha/core';
+import type { SettingsDto, SettingsUpdateDto, SimulateRequest } from '@elec-ha/core';
 import { api } from './client.js';
 
 export const keys = {
@@ -24,4 +24,23 @@ export function useUpdateSettings() {
 
 export function useHaEntities(enabled: boolean) {
   return useQuery({ queryKey: keys.haEntities, queryFn: api.getHaEntities, enabled, retry: false });
+}
+
+export function useConsumption(from: string, to: string, enabled: boolean) {
+  return useQuery({
+    queryKey: keys.consumption(from, to, 'hour'),
+    queryFn: () => api.getConsumption(from, to, 'hour'),
+    enabled,
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useSimulate(body: SimulateRequest, enabled: boolean) {
+  return useQuery({
+    queryKey: keys.simulate(body),
+    queryFn: () => api.simulate(body),
+    enabled,
+    staleTime: 5 * 60_000,
+    placeholderData: (prev) => prev,
+  });
 }
