@@ -250,7 +250,7 @@ Pour chaque période rouge `[R1 … Rk]` :
 2. Construire un profil horaire de substitution unique pour la période, moyenne **heure par heure** des jours de référence trouvés (jusqu'à 6) :
    `E'(hh) = moyenne( E(J, hh) pour J ∈ références )` pour chaque heure `hh` de 0 à 23 (heure locale). La moyenne heure par heure conserve le profil HP/HC.
 3. Cas dégradés : si moins de 3 jours sont trouvés d'un côté (début/fin de période analysée), on utilise ce qui est disponible ; si aucun jour de référence n'existe des deux côtés, la période rouge est laissée telle quelle et signalée dans le bandeau d'avertissement.
-4. Appliquer `E'(hh)` à chaque jour `Ri` de la période, sur sa fenêtre de couleur (06:00 → 06:00 J+1), puis appliquer §5.4. **Le lissage ne va que vers le haut** (v0.5) : si la consommation observée du jour est déjà supérieure ou égale au total du profil sur ses heures présentes, le jour est laissé tel quel.
+4. Appliquer `E'(hh)` à chaque jour `Ri` de la période, sur sa fenêtre de couleur (06:00 → 06:00 J+1), puis appliquer §5.4. **Le lissage ne va que vers le haut** (v0.5) : si la consommation observée du jour est déjà supérieure ou égale au total du profil sur ses heures présentes, le jour est laissé tel quel. Un jour blanc ou rouge à consommation quasi nulle (< 1 kWh) n'est **pas** lissé non plus : c'est une donnée manquante (index figé), pas un effacement.
 
 Paramètres avancés (écran de configuration, valeurs par défaut suffisantes) : nombre de jours de référence de chaque côté `N = 3` ; fenêtre de recherche `14` jours. Les week-ends ne sont pas exclus des références (les jours rouges sont toujours des jours de semaine, la moyenne sur 3 jours atténue l'effet d'un éventuel week-end).
 

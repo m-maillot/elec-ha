@@ -63,6 +63,7 @@ describe('lissage – exemple de contrôle §5.6', () => {
         referencesBefore: ['2026-01-12', '2026-01-13', '2026-01-14'],
         referencesAfter: ['2026-01-16', '2026-01-17', '2026-01-18'],
         smoothed: true,
+        skippedDays: [],
       },
     ]);
     // Lignes par jour : kWh observés + kWh ajoutés sur le jour rouge
@@ -228,6 +229,9 @@ describe('lissage uniquement vers le haut', () => {
     };
     const r = simulateWithSmoothing(input(profiles, { '2026-01-15': 'red' }));
     expect(r.smoothing.periods[0]!.smoothed).toBe(true);
+    expect(r.smoothing.periods[0]!.skippedDays).toEqual([
+      { date: '2026-01-15', reason: 'above_profile' },
+    ]);
     expect(r.smoothing.redistributedKwh).toBe(0);
     expect(r.smoothing.substitutedHours).toHaveLength(0);
     expect(r.tempo.byColor.red.hpKwh).toBeCloseTo(35 * 0.4, 6);
@@ -253,6 +257,30 @@ describe('lissage uniquement vers le haut', () => {
 });
 
 describe('jours à consommation (quasi) nulle', () => {
+  it('un jour blanc ou rouge sans consommation n’est pas lissé (donnée manquante, pas effacement)', () => {
+    const profiles = {
+      '2026-01-13': p(30),
+      '2026-01-14': p(30),
+      '2026-01-15': p(0),
+      '2026-01-16': p(0.5),
+      '2026-01-17': p(30),
+    };
+    const r = simulateWithSmoothing(
+      input(profiles, { '2026-01-15': 'red', '2026-01-16': 'white' }),
+    );
+    expect(r.smoothing.periods[0]).toMatchObject({
+      days: ['2026-01-15', '2026-01-16'],
+      smoothed: true,
+      skippedDays: [
+        { date: '2026-01-15', reason: 'no_consumption' },
+        { date: '2026-01-16', reason: 'no_consumption' },
+      ],
+    });
+    expect(r.smoothing.redistributedKwh).toBe(0);
+    expect(r.days.find((d) => d.date === '2026-01-15')!.addedKwh).toBe(0);
+    expect(r.tempo.byColor.red.total).toBe(0);
+  });
+
   it('ne sert jamais de référence (index non mis à jour)', () => {
     // 13/01 à 0 kWh et 14/01 à 0,4 kWh (< 1 kWh), 12/01 valide ; après : 16 à 0, 17 valide
     const profiles = {
@@ -292,7 +320,7 @@ describe('références hors de la période analysée', () => {
 
 describe('applySmoothing – fenêtre de couleur et trous', () => {
   it('substitue les heures de la fenêtre 06:00 → 06:00 J+1 et conserve les trous', () => {
-    const profiles = { '2026-01-14': p(24), '2026-01-15': p(0), '2026-01-16': p(24) };
+    const profiles = { '2026-01-14': p(24), '2026-01-15': p(2), '2026-01-16': p(24) };
     const inp = input(profiles, { '2026-01-15': 'red' }, '2026-01-14', '2026-01-17');
     // Trou : 15/01 12:00 (heure locale) absent
     const gap = Date.UTC(2026, 0, 15, 11);

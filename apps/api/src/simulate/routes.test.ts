@@ -96,6 +96,7 @@ describe('POST /api/simulate et GET /api/consumption', () => {
           referencesBefore: ['2026-01-14'],
           referencesAfter: ['2026-01-16'],
           smoothed: true,
+          skippedDays: [],
         },
       ]);
       // Profil 1 kWh/h → 24 kWh sur le jour rouge au lieu de 10

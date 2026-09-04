@@ -33,6 +33,8 @@ export interface SmoothingPeriod {
   referencesAfter: string[];
   /** `false` si aucune référence n'a été trouvée : la période est laissée telle quelle. */
   smoothed: boolean;
+  /** Jours de la période laissés tels quels malgré des références. */
+  skippedDays: Array<{ date: string; reason: 'no_consumption' | 'above_profile' }>;
 }
 
 export interface SmoothingSummary {
@@ -184,6 +186,7 @@ export function applySmoothing(
       referencesBefore: before,
       referencesAfter: after,
       smoothed: refs.length > 0,
+      skippedDays: [],
     };
     periods.push(period);
     if (!period.smoothed) continue;
@@ -200,7 +203,15 @@ export function applySmoothing(
         actual += h.kwh ?? 0;
         expected += value;
       }
-      if (expected <= actual) continue;
+      // Un jour sans consommation n'est pas un effacement mais une donnée manquante (index figé).
+      if (actual < minKwh) {
+        period.skippedDays.push({ date: d, reason: 'no_consumption' });
+        continue;
+      }
+      if (expected <= actual) {
+        period.skippedDays.push({ date: d, reason: 'above_profile' });
+        continue;
+      }
       for (const h of dayHours) {
         const value = profile[Math.floor(h.minuteOfDay / 60)] ?? null;
         if (value === null) continue;
