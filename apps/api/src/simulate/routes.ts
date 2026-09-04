@@ -31,6 +31,7 @@ export const simulateRoutes: FastifyPluginAsyncTypebox = async (app) => {
       ? simulateWithSmoothing(simulationInput, {
           refDays: params.smoothingRefDays,
           searchWindowDays: params.smoothingSearchWindowDays,
+          profile: params.smoothingProfile,
         })
       : simulate(simulationInput);
 

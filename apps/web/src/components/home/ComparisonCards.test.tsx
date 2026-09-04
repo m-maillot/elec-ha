@@ -50,6 +50,7 @@ describe('ComparisonCards – lissage', () => {
       smoothing: {
         refDays: 3,
         searchWindowDays: 14,
+        profile: 'median' as const,
         periods: [
           {
             days: ['2026-01-15'],

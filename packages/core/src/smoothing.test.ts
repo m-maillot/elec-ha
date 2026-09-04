@@ -107,10 +107,16 @@ describe('lissage – exemple de contrôle §5.6', () => {
       referencesAfter: ['2026-01-17', '2026-01-18', '2026-01-19'],
       smoothed: true,
     });
-    // E′ = (30+32+28+36+32+30)/6 = 31,333 kWh appliqué aux deux jours (Base/HP-HC)
-    expect(r.smoothing.redistributedKwh).toBeCloseTo(2 * 31.3333333 - 19, 5);
+    // Médiane de {30, 32, 28, 36, 32, 30} = 31 kWh appliquée aux deux jours (Base/HP-HC) ;
+    // la moyenne (31,333) reste disponible en option
+    expect(r.smoothing.redistributedKwh).toBeCloseTo(2 * 31 - 19, 5);
     const day15 = r.days.find((d) => d.date === '2026-01-15')!;
-    expect(day15.smoothedHpKwh! + day15.smoothedHcKwh!).toBeCloseTo(31.3333333, 5);
+    expect(day15.smoothedHpKwh! + day15.smoothedHcKwh!).toBeCloseTo(31, 5);
+    const mean = simulateWithSmoothing(input(two, { '2026-01-15': 'red', '2026-01-16': 'red' }), {
+      profile: 'mean',
+    });
+    expect(mean.smoothing.profile).toBe('mean');
+    expect(mean.smoothing.redistributedKwh).toBeCloseTo(2 * 31.3333333 - 19, 5);
   });
 
   it('saute les jours rouges voisins et les jours sans données ; utilise ce qui existe', () => {
@@ -174,6 +180,35 @@ describe('lissage – exemple de contrôle §5.6', () => {
     expect(r.smoothing.periods[0]!.smoothed).toBe(false);
     const r2 = simulateWithSmoothing(base, { searchWindowDays: 14 });
     expect(r2.smoothing.periods[0]!.referencesBefore).toEqual(['2026-01-01']);
+  });
+});
+
+describe('profil médian – recharge de véhicule électrique', () => {
+  it('une nuit de recharge parmi les références n’influence pas le profil médian', () => {
+    // 5 références normales (24 kWh) et une nuit de recharge le 13/01 : HC triplées
+    const profiles = {
+      '2026-01-11': p(24),
+      '2026-01-12': p(24),
+      '2026-01-13': { hp: 24 * 0.4, hc: 24 * 0.6 * 3 },
+      '2026-01-15': p(8),
+      '2026-01-16': p(24),
+      '2026-01-17': p(24),
+      '2026-01-18': p(24),
+    };
+    const median = simulateWithSmoothing(input(profiles, { '2026-01-15': 'red' }));
+    expect(median.smoothing.profile).toBe('median');
+    expect(median.days.find((d) => d.date === '2026-01-15')!.smoothedHcKwh).toBeCloseTo(
+      24 * 0.6,
+      6,
+    );
+    const mean = simulateWithSmoothing(input(profiles, { '2026-01-15': 'red' }), {
+      profile: 'mean',
+    });
+    // Moyenne : la recharge ajoute (2 × 14,4) / 6 = 4,8 kWh de HC au profil
+    expect(mean.days.find((d) => d.date === '2026-01-15')!.smoothedHcKwh).toBeCloseTo(
+      24 * 0.6 + 4.8,
+      6,
+    );
   });
 });
 

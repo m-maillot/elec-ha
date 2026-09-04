@@ -1,0 +1,1 @@
+ALTER TABLE `settings` ADD `smoothing_profile` text DEFAULT 'median' NOT NULL;

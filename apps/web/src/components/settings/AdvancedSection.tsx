@@ -1,5 +1,11 @@
 import { useState, type FormEvent } from 'react';
-import { TARIFF_OPTIONS, type SettingsDto, type TariffOption } from '@elec-ha/core';
+import {
+  SMOOTHING_PROFILES,
+  TARIFF_OPTIONS,
+  type SettingsDto,
+  type SmoothingProfile,
+  type TariffOption,
+} from '@elec-ha/core';
 import { t } from '../../i18n/fr.js';
 import {
   Card,
@@ -21,6 +27,7 @@ export function AdvancedSection({ settings }: { settings: SettingsDto }) {
   const [colorSwitchHour, setColorSwitchHour] = useState(String(settings.advanced.colorSwitchHour));
   const [refDays, setRefDays] = useState(String(settings.advanced.smoothingRefDays));
   const [window, setWindow] = useState(String(settings.advanced.smoothingSearchWindowDays));
+  const [profile, setProfile] = useState<SmoothingProfile>(settings.advanced.smoothingProfile);
   const { save, saving, saved, error } = useSave();
 
   function onSubmit(e: FormEvent) {
@@ -31,6 +38,7 @@ export function AdvancedSection({ settings }: { settings: SettingsDto }) {
         colorSwitchHour: Number(colorSwitchHour),
         smoothingRefDays: Number(refDays),
         smoothingSearchWindowDays: Number(window),
+        smoothingProfile: profile,
       },
     });
   }
@@ -80,6 +88,19 @@ export function AdvancedSection({ settings }: { settings: SettingsDto }) {
                 value={refDays}
                 onChange={(e) => setRefDays(e.target.value)}
               />
+            </Field>
+            <Field id="smoothing-profile" label={s.smoothingProfile}>
+              <Select
+                id="smoothing-profile"
+                value={profile}
+                onChange={(e) => setProfile(e.target.value as SmoothingProfile)}
+              >
+                {SMOOTHING_PROFILES.map((p) => (
+                  <option key={p} value={p}>
+                    {s.smoothingProfiles[p]}
+                  </option>
+                ))}
+              </Select>
             </Field>
             <Field id="smoothing-window" label={s.smoothingSearchWindowDays}>
               <Input

@@ -44,6 +44,7 @@ export function StatusBanners({
             result.smoothing.periods.length,
             result.smoothing.refDays,
             result.smoothing.searchWindowDays,
+            result.smoothing.profile,
           )}
         </Alert>
       )}

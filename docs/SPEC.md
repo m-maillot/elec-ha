@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Projet** | Comparateur d'options tarifaires EDF (Base / HP-HC / Tempo) |
-| **Version** | 0.5 – lissage étendu aux jours blancs, tableau par jour |
+| **Version** | 0.6 – profil médian pour le lissage |
 | **Date** | 3 septembre 2026 |
 | **Auteur** | Martial |
 | **Statut** | Validée pour démarrage |
@@ -17,6 +17,7 @@
 | 0.3 | 03/09/2026 | Plusieurs entités de consommation additionnées (ex. index HP + index HC du Linky) ; suppression de la source « entité HA » pour les couleurs Tempo (API RTE + CSV uniquement) |
 | 0.4 | 04/09/2026 | Lissage : les jours à consommation nulle ne servent jamais de référence ; références possibles hors de la période analysée |
 | 0.5 | 04/09/2026 | Lissage étendu aux jours **blancs** (références = jours bleus uniquement), uniquement vers le haut, jours sans consommation exclus ; le lissage s'applique à **Base et HP/HC** (Tempo reste observé) ; tableau récapitulatif par jour (§4.2.5) |
+| 0.6 | 04/09/2026 | Profil de substitution = **médiane** heure par heure des références (robuste à une nuit de recharge de véhicule électrique) ; moyenne conservée en option avancée |
 
 ---
 
@@ -247,12 +248,12 @@ Depuis la v0.5, le lissage s'applique aux jours **blancs et rouges**. Ils sont r
 Pour chaque période rouge `[R1 … Rk]` :
 
 1. Chercher les **3 jours bleus** les plus proches **avant** `R1` et les **3 jours bleus** les plus proches **après** `Rk`. On saute les jours blancs et rouges (y compris ceux d'une autre période voisine), les jours sans données ou incomplets, les jours sans couleur connue et les **jours à consommation quasi nulle** (< 1 kWh : index non mis à jour, capteur en panne – v0.4/v0.5). Fenêtre de recherche maximale : 14 jours de chaque côté (paramètre avancé `smoothingSearchWindowDays`). Les références peuvent se trouver hors de la période analysée si les données sont en cache.
-2. Construire un profil horaire de substitution unique pour la période, moyenne **heure par heure** des jours de référence trouvés (jusqu'à 6) :
-   `E'(hh) = moyenne( E(J, hh) pour J ∈ références )` pour chaque heure `hh` de 0 à 23 (heure locale). La moyenne heure par heure conserve le profil HP/HC.
+2. Construire un profil horaire de substitution unique pour la période, **médiane heure par heure** (v0.6 ; moyenne en option avancée « profil de lissage ») des jours de référence trouvés (jusqu'à 6) :
+   `E'(hh) = médiane( E(J, hh) pour J ∈ références )` pour chaque heure `hh` de 0 à 23 (heure locale). Le calcul heure par heure conserve le profil HP/HC ; la médiane neutralise une nuit atypique parmi les références (recharge de véhicule électrique, par exemple).
 3. Cas dégradés : si moins de 3 jours sont trouvés d'un côté (début/fin de période analysée), on utilise ce qui est disponible ; si aucun jour de référence n'existe des deux côtés, la période rouge est laissée telle quelle et signalée dans le bandeau d'avertissement.
 4. Appliquer `E'(hh)` à chaque jour `Ri` de la période, sur sa fenêtre de couleur (06:00 → 06:00 J+1), puis appliquer §5.4 pour Base et HP/HC (Tempo sur la série observée). **Le lissage ne va que vers le haut** (v0.5) : si la consommation observée du jour est déjà supérieure ou égale au total du profil sur ses heures présentes, le jour est laissé tel quel. Un jour blanc ou rouge à consommation quasi nulle (< 1 kWh) n'est **pas** lissé non plus : c'est une donnée manquante (index figé), pas un effacement.
 
-Paramètres avancés (écran de configuration, valeurs par défaut suffisantes) : nombre de jours de référence de chaque côté `N = 3` ; fenêtre de recherche `14` jours. Les week-ends ne sont pas exclus des références (les jours rouges sont toujours des jours de semaine, la moyenne sur 3 jours atténue l'effet d'un éventuel week-end).
+Paramètres avancés (écran de configuration, valeurs par défaut suffisantes) : nombre de jours de référence de chaque côté `N = 3` ; fenêtre de recherche `14` jours ; profil de lissage `médiane` (défaut) ou `moyenne`. Les week-ends ne sont pas exclus des références (les jours rouges sont toujours des jours de semaine, la moyenne sur 3 jours atténue l'effet d'un éventuel week-end).
 
 Le graphique propose une case « Afficher la conso lissée » qui superpose en pointillés la courbe modifiée sur les jours rouges, pour rendre l'hypothèse visible.
 
@@ -336,7 +337,7 @@ Le backend normalise toutes les sources vers la table `tempo_days(date, color, s
 settings          (id=1, ha_url, ha_token_enc, entity_ids (JSON),
                    subscribed_power_kva, tempo_source, rte_client_id, rte_secret_enc,
                    current_option, smoothing_ref_days=3, smoothing_search_window_days=14,
-                   color_switch_hour=6, updated_at)
+                   smoothing_profile='median', color_switch_hour=6, updated_at)
 tariffs           (option ∈ base|hphc|tempo, valid_from, subscription_yearly,
                    price_json)              -- {base} | {hp,hc} | {blue_hp,blue_hc,...}
 offpeak_ranges    (id, tariff_set ∈ hphc|tempo, start_min, end_min)   -- minutes depuis 00:00

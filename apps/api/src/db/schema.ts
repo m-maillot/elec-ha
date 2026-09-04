@@ -15,6 +15,8 @@ export const settings = sqliteTable('settings', {
   smoothingRefDays: integer('smoothing_ref_days').notNull().default(3),
   smoothingSearchWindowDays: integer('smoothing_search_window_days').notNull().default(14),
   colorSwitchHour: integer('color_switch_hour').notNull().default(6),
+  /** median | mean */
+  smoothingProfile: text('smoothing_profile').notNull().default('median'),
   lastSyncAt: text('last_sync_at'),
   updatedAt: text('updated_at'),
 });
