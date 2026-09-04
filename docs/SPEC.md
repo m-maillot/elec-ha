@@ -192,7 +192,7 @@ Lorsque le lissage est actif, la carte Tempo affiche en plus « Coût sans lissa
 
 #### 4.2.5 Tableau récapitulatif par jour (v0.5)
 
-En fin d'écran principal, un tableau liste chaque **jour Tempo** (06:00 → 06:00 J+1) de la période : date, couleur (pastille + libellé), consommation totale, consommation HP et HC (créneaux de l'option Tempo), heures manquantes le cas échéant, et – lorsque le lissage est actif – les **kWh ajoutés** par le lissage. En-tête fixe et zone défilante pour les longues périodes.
+En fin d'écran principal, un tableau liste chaque **jour Tempo** (06:00 → 06:00 J+1) de la période : date, couleur (pastille + libellé), consommation totale, consommation HP et HC (créneaux de l'option Tempo), heures manquantes le cas échéant, et – lorsque le lissage est actif – les **kWh ajoutés** par le lissage ainsi que les consommations **HP et HC après lissage**. En-tête fixe et zone défilante pour les longues périodes.
 
 ## 5. Règles de calcul
 

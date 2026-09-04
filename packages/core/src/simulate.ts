@@ -116,6 +116,9 @@ export interface DayRow {
   presentHours: number;
   /** kWh ajoutés par le lissage (Σ E′ − E), présent uniquement quand le lissage est actif. */
   addedKwh?: number;
+  /** Répartition HP / HC après lissage (créneaux Tempo), présente uniquement avec le lissage. */
+  smoothedHpKwh?: number;
+  smoothedHcKwh?: number;
 }
 
 export interface SimulationResult {

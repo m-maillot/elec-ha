@@ -12,7 +12,17 @@ const days: DayRow[] = [
     presentHours: 24,
     addedKwh: 0,
   },
-  { date: '2026-01-15', color: 'red', kwh: 10, hpKwh: 4, hcKwh: 6, presentHours: 24, addedKwh: 22 },
+  {
+    date: '2026-01-15',
+    color: 'red',
+    kwh: 10,
+    hpKwh: 4,
+    hcKwh: 6,
+    presentHours: 24,
+    addedKwh: 22,
+    smoothedHpKwh: 12.8,
+    smoothedHcKwh: 19.2,
+  },
   { date: '2026-01-16', color: null, kwh: null, hpKwh: 0, hcKwh: 0, presentHours: 0 },
   { date: '2026-01-17', color: 'white', kwh: 20.4, hpKwh: 10, hcKwh: 10.4, presentHours: 20 },
 ];
@@ -25,6 +35,8 @@ describe('DaysTable', () => {
     expect(within(red).getByText('Rouge')).toBeInTheDocument();
     expect(red).toHaveTextContent('10');
     expect(within(red).getByText('+22')).toBeInTheDocument();
+    expect(within(red).getByText('12,8')).toBeInTheDocument();
+    expect(within(red).getByText('19,2')).toBeInTheDocument();
     const unknown = screen.getByRole('row', { name: /16 janv\. 2026/ });
     expect(within(unknown).getByText('inconnue')).toBeInTheDocument();
     expect(within(unknown).getByText('—')).toBeInTheDocument();
@@ -36,5 +48,6 @@ describe('DaysTable', () => {
   it('masque la colonne des kWh ajoutés sans lissage', () => {
     render(<DaysTable days={days} smoothing={false} />);
     expect(screen.queryByText('kWh ajoutés (lissage)')).not.toBeInTheDocument();
+    expect(screen.queryByText('HP lissé (kWh)')).not.toBeInTheDocument();
   });
 });

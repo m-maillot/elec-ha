@@ -49,9 +49,17 @@ export function DaysTable({ days, smoothing }: DaysTableProps) {
                   {d.hc} (kWh)
                 </th>
                 {smoothing && (
-                  <th scope="col" className={cn(th, 'text-right')}>
-                    {d.added}
-                  </th>
+                  <>
+                    <th scope="col" className={cn(th, 'text-right')}>
+                      {d.added}
+                    </th>
+                    <th scope="col" className={cn(th, 'text-right')}>
+                      {d.smoothedHp} (kWh)
+                    </th>
+                    <th scope="col" className={cn(th, 'text-right')}>
+                      {d.smoothedHc} (kWh)
+                    </th>
+                  </>
                 )}
               </tr>
             </thead>
@@ -83,16 +91,27 @@ export function DaysTable({ days, smoothing }: DaysTableProps) {
                       {row.kwh === null ? '' : kwh(row.hcKwh)}
                     </td>
                     {smoothing && (
-                      <td
-                        className={cn(
-                          td,
-                          'text-right',
-                          (row.addedKwh ?? 0) > 0 && 'text-red-700',
-                          (row.addedKwh ?? 0) < 0 && 'text-green-700',
-                        )}
-                      >
-                        {row.addedKwh ? fmt.signedKwh(row.addedKwh).replace(/\s?kWh$/, '') : ''}
-                      </td>
+                      <>
+                        <td
+                          className={cn(
+                            td,
+                            'text-right',
+                            (row.addedKwh ?? 0) > 0 && 'text-red-700',
+                          )}
+                        >
+                          {row.addedKwh ? fmt.signedKwh(row.addedKwh).replace(/\s?kWh$/, '') : ''}
+                        </td>
+                        <td
+                          className={cn(td, 'text-right', (row.addedKwh ?? 0) > 0 && 'font-medium')}
+                        >
+                          {row.kwh === null ? '' : kwh(row.smoothedHpKwh ?? row.hpKwh)}
+                        </td>
+                        <td
+                          className={cn(td, 'text-right', (row.addedKwh ?? 0) > 0 && 'font-medium')}
+                        >
+                          {row.kwh === null ? '' : kwh(row.smoothedHcKwh ?? row.hcKwh)}
+                        </td>
+                      </>
                     )}
                   </tr>
                 );

@@ -84,6 +84,8 @@ export const t = {
       hp: 'HP',
       hc: 'HC',
       added: 'kWh ajoutés (lissage)',
+      smoothedHp: 'HP lissé',
+      smoothedHc: 'HC lissé',
       missing: (h: number) => `${h} h manquante(s)`,
       unknownColor: 'inconnue',
       count: (n: number) => `${n} jour(s)`,

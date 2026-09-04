@@ -72,6 +72,10 @@ describe('lissage – exemple de contrôle §5.6', () => {
     expect(day15.hpKwh).toBeCloseTo(4, 9);
     expect(day15.hcKwh).toBeCloseTo(6, 9);
     expect(day15.addedKwh).toBeCloseTo(22, 9);
+    expect(day15.smoothedHpKwh).toBeCloseTo(12.8, 9);
+    expect(day15.smoothedHcKwh).toBeCloseTo(19.2, 9);
+    const day14 = r.days.find((d) => d.date === '2026-01-14')!;
+    expect(day14.smoothedHpKwh).toBeCloseTo(day14.hpKwh, 9);
     expect(r.days.find((d) => d.date === '2026-01-14')!.addedKwh).toBe(0);
     expect(r.tempo.byColor.red.hpKwh).toBeCloseTo(12.8, 9);
     expect(r.tempo.byColor.red.hcKwh).toBeCloseTo(19.2, 9);

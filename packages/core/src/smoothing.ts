@@ -276,7 +276,12 @@ export function simulateWithSmoothing(
     tempo,
     best,
     warnings,
-    days: plain.days.map((d) => ({ ...d, addedKwh: smoothed.addedByDay.get(d.date) ?? 0 })),
+    days: plain.days.map((d, i) => ({
+      ...d,
+      addedKwh: smoothed.addedByDay.get(d.date) ?? 0,
+      smoothedHpKwh: withSmoothing.days[i]?.hpKwh ?? d.hpKwh,
+      smoothedHcKwh: withSmoothing.days[i]?.hcKwh ?? d.hcKwh,
+    })),
     smoothing: {
       refDays: options.refDays ?? 3,
       searchWindowDays: options.searchWindowDays ?? 14,
