@@ -112,9 +112,13 @@ function findReferences(
   for (let i = 1; i <= window && refs.length < count; i++) {
     const d = addDays(start, i * direction);
     const color = calendar[d];
-    // Les jours rouges (y compris d'une autre période) et les jours sans couleur connue sont sautés.
+    // Sont sautés : jours rouges (y compris d'une autre période), jours sans couleur connue,
+    // jours incomplets et jours à consommation nulle.
     if (color === undefined || color === 'red') continue;
-    if ((days.get(d)?.length ?? 0) < minHours) continue;
+    const hours = days.get(d) ?? [];
+    if (hours.length < minHours) continue;
+    // Un jour à consommation nulle n'est pas une référence (index non mis à jour, capteur en panne).
+    if (hours.reduce((sum, h) => sum + (h.kwh ?? 0), 0) <= 0) continue;
     refs.push(d);
   }
   return direction === -1 ? refs.reverse() : refs;

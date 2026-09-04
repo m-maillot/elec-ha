@@ -158,6 +158,22 @@ describe('lissage – exemple de contrôle §5.6', () => {
   });
 });
 
+describe('jours à consommation nulle', () => {
+  it('ne sert jamais de référence (index non mis à jour)', () => {
+    // 13 et 14/01 présents mais à 0 kWh, 12/01 valide ; après : 16 à 0, 17 valide
+    const profiles = { '2026-01-12': p(30), '2026-01-15': p(10), '2026-01-17': p(34) };
+    const r = simulateWithSmoothing(
+      input(profiles, { '2026-01-15': 'red' }, '2026-01-11', '2026-01-18'),
+    );
+    expect(r.smoothing.periods[0]).toMatchObject({
+      referencesBefore: ['2026-01-12'],
+      referencesAfter: ['2026-01-17'],
+      smoothed: true,
+    });
+    expect(r.tempo.byColor.red.hpKwh).toBeCloseTo(32 * 0.4, 6);
+  });
+});
+
 describe('références hors de la période analysée', () => {
   it('utilise les jours voisins présents dans les données même hors période', () => {
     const profiles = { '2026-01-14': p(30), '2026-01-15': p(10), '2026-01-16': p(34) };
@@ -165,12 +181,12 @@ describe('références hors de la période analysée', () => {
     inp.period = { from: '2026-01-15', to: '2026-01-15' }; // seule la journée rouge est analysée
     const r = simulateWithSmoothing(inp);
     expect(r.smoothing.periods[0]).toMatchObject({
-      referencesBefore: ['2026-01-13', '2026-01-14'],
+      referencesBefore: ['2026-01-14'], // le 13/01 est à 0 kWh : écarté
       referencesAfter: ['2026-01-16'], // le 17/01 n'a que 18 h de données : écarté
       smoothed: true,
     });
-    // Profil = (0 + 30 + 34) / 3 kWh, appliqué aux heures de la période (HP 06–22 h, HC 22–24 h)
-    expect(r.tempo.byColor.red.hpKwh).toBeCloseTo((64 / 3) * 0.4, 6);
+    // Profil = (30 + 34) / 2 kWh, appliqué aux heures de la période (HP 06–22 h, HC 22–24 h)
+    expect(r.tempo.byColor.red.hpKwh).toBeCloseTo(32 * 0.4, 6);
     expect(r.period.days).toBe(1);
   });
 });
