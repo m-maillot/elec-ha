@@ -129,7 +129,7 @@ export const t = {
         `Connecté à Home Assistant ${version} – ${n} entité(s) éligible(s) sur ${total} statistique(s).`,
       entities: 'Entités de consommation',
       entitiesHelp:
-        'Cochez une ou plusieurs entités (statistiques long terme en kWh / Wh). Plusieurs entités sont additionnées heure par heure, par exemple un index HP et un index HC.',
+        'Cochez une ou plusieurs entités (statistiques long terme en kWh / Wh) : elles sont additionnées heure par heure. Abonné Tempo avec module TIC : cochez les six index BBRHCJB, BBRHPJB, BBRHCJW, BBRHPJW, BBRHCJR, BBRHPJR (les index HCHC / HCHP ne suivent que les jours bleus). Abonné HP/HC : index HCHC + HCHP. Abonné Base : index BASE.',
       entitiesEmpty: 'Testez la connexion pour lister les entités éligibles.',
       entitiesSelected: (n: number) => `${n} entité(s) sélectionnée(s)`,
       entitiesNone: 'Aucune entité sélectionnée : la synchronisation ne pourra pas démarrer.',
