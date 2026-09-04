@@ -3,6 +3,7 @@
  * Réf. spec §6.6.
  */
 import type { SimulationResult } from './simulate.js';
+import type { SmoothingSummary } from './smoothing.js';
 import type {
   OffpeakSets,
   SubscribedPower,
@@ -132,6 +133,8 @@ export interface SimulateRequest {
 
 export interface SimulateResponse extends SimulationResult {
   smoothingApplied: boolean;
+  /** Présent quand le lissage a été appliqué. */
+  smoothing?: SmoothingSummary;
   lastSyncAt: string | null;
 }
 

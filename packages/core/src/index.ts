@@ -15,3 +15,4 @@ export * from './offpeak.js';
 export * from './tariffs.js';
 export * from './simulate.js';
 export * from './contracts.js';
+export * from './smoothing.js';

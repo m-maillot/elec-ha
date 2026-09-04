@@ -25,7 +25,10 @@ export const t = {
     },
     currentOption: 'Option actuelle',
     smoothing: 'Lissage jours rouges',
-    smoothingUnavailable: 'Le lissage des jours rouges sera disponible au lot 6.',
+    smoothingActive: (n: number, refs: number, window: number) =>
+      `Lissage actif : ${n} période(s) rouge(s) remplacée(s) par la moyenne horaire des ${refs} jours non rouges précédents et suivants (fenêtre ${window} jours).`,
+    smoothingNoReference: (n: number) =>
+      `${n} période(s) rouge(s) non lissée(s) faute de jours de référence`,
     refresh: 'Actualiser',
     refreshing: 'Actualisation…',
     syncStep: { consumption: 'Consommation', tempo: 'Couleurs Tempo' },
@@ -68,12 +71,16 @@ export const t = {
       eurHc: '€ HC',
       eurTotal: '€ total',
       excluded: (kwh: string) => `${kwh} exclus faute de couleur connue`,
+      costWithoutSmoothing: 'Coût sans lissage',
+      redistributed: 'kWh redistribués sur les jours rouges',
     },
     chart: {
       title: 'Consommation',
       colorBy: 'Colorer selon',
       granularity: { hour: 'heure', day: 'jour', month: 'mois' },
       hint: 'Molette ou glisser pour zoomer, double-clic pour revenir à la vue complète.',
+      showSmoothed: 'Afficher la conso lissée',
+      smoothedSeries: 'Conso lissée (jours rouges)',
       series: {
         base: 'Consommation',
         hp: 'HP',

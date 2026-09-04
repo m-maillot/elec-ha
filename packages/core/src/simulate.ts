@@ -38,7 +38,11 @@ export interface SimulationInput {
 // ---------------------------------------------------------------------------
 
 export type WarningCode =
-  'missing_hours' | 'negative_values' | 'unknown_tempo_days' | 'tempo_partial';
+  | 'missing_hours'
+  | 'negative_values'
+  | 'unknown_tempo_days'
+  | 'tempo_partial'
+  | 'smoothing_no_reference';
 
 export interface SimulationWarning {
   code: WarningCode;

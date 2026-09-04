@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Projet** | Comparateur d'options tarifaires EDF (Base / HP-HC / Tempo) |
-| **Version** | 0.3 – entités multiples, sources Tempo réduites |
+| **Version** | 0.4 – règles de référence du lissage précisées |
 | **Date** | 3 septembre 2026 |
 | **Auteur** | Martial |
 | **Statut** | Validée pour démarrage |
@@ -15,6 +15,7 @@
 | 0.1 | 03/09/2026 | Première version pour cadrage |
 | 0.2 | 03/09/2026 | Arbitrages des questions ouvertes : lissage sur 3 jours non rouges de part et d'autre de la période rouge, API RTE par défaut, grille unique, standalone sans authentification |
 | 0.3 | 03/09/2026 | Plusieurs entités de consommation additionnées (ex. index HP + index HC du Linky) ; suppression de la source « entité HA » pour les couleurs Tempo (API RTE + CSV uniquement) |
+| 0.4 | 04/09/2026 | Lissage : les jours à consommation nulle ne servent jamais de référence ; références possibles hors de la période analysée |
 
 ---
 
@@ -240,7 +241,7 @@ Les jours rouges sont d'abord regroupés en **périodes rouges** = suites de jou
 
 Pour chaque période rouge `[R1 … Rk]` :
 
-1. Chercher les **3 jours non-rouges** les plus proches **avant** `R1` et les **3 jours non-rouges** les plus proches **après** `Rk`. On saute les jours rouges (y compris ceux d'une autre période rouge voisine) et les jours sans données. Fenêtre de recherche maximale : 14 jours de chaque côté (paramètre avancé `smoothingSearchWindowDays`).
+1. Chercher les **3 jours non-rouges** les plus proches **avant** `R1` et les **3 jours non-rouges** les plus proches **après** `Rk`. On saute les jours rouges (y compris ceux d'une autre période rouge voisine), les jours sans données ou incomplets, les jours sans couleur connue et les **jours à consommation nulle** (index non mis à jour, capteur en panne – v0.4). Fenêtre de recherche maximale : 14 jours de chaque côté (paramètre avancé `smoothingSearchWindowDays`). Les références peuvent se trouver hors de la période analysée si les données sont en cache.
 2. Construire un profil horaire de substitution unique pour la période, moyenne **heure par heure** des jours de référence trouvés (jusqu'à 6) :
    `E'(hh) = moyenne( E(J, hh) pour J ∈ références )` pour chaque heure `hh` de 0 à 23 (heure locale). La moyenne heure par heure conserve le profil HP/HC.
 3. Cas dégradés : si moins de 3 jours sont trouvés d'un côté (début/fin de période analysée), on utilise ce qui est disponible ; si aucun jour de référence n'existe des deux côtés, la période rouge est laissée telle quelle et signalée dans le bandeau d'avertissement.

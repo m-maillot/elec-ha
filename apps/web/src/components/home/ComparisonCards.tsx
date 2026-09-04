@@ -90,6 +90,15 @@ function OptionCard({ option, result }: CardProps) {
         {partial && (
           <p className="text-xs text-amber-700">{c.excluded(fmt.kwh(result.tempo.excludedKwh))}</p>
         )}
+        {option === 'tempo' && result.smoothing && (
+          <div className="mt-1 rounded-md bg-slate-50 px-2 py-1.5">
+            <Row
+              label={c.costWithoutSmoothing}
+              value={fmt.eur(result.smoothing.costWithoutSmoothing)}
+            />
+            <Row label={c.redistributed} value={fmt.signedKwh(result.smoothing.redistributedKwh)} />
+          </div>
+        )}
       </div>
       {option === 'hphc' && <HpHcDetail result={result} />}
       {option === 'tempo' && <TempoDetail result={result} />}
