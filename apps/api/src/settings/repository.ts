@@ -10,6 +10,7 @@ import {
   type OffpeakSets,
   type SettingsDto,
   type SettingsUpdateDto,
+  type SmoothingProfile,
   type SubscribedPower,
   type TariffGrid,
   type TariffOption,
@@ -34,6 +35,7 @@ export interface SimulationSettings {
   colorSwitchHour: number;
   smoothingRefDays: number;
   smoothingSearchWindowDays: number;
+  smoothingProfile: SmoothingProfile;
 }
 
 export class SettingsRepository {
@@ -115,6 +117,7 @@ export class SettingsRepository {
         colorSwitchHour: r.colorSwitchHour,
         smoothingRefDays: r.smoothingRefDays,
         smoothingSearchWindowDays: r.smoothingSearchWindowDays,
+        smoothingProfile: r.smoothingProfile as SmoothingProfile,
       },
       configured:
         r.haUrl !== null &&
@@ -156,6 +159,7 @@ export class SettingsRepository {
       colorSwitchHour: r.colorSwitchHour,
       smoothingRefDays: r.smoothingRefDays,
       smoothingSearchWindowDays: r.smoothingSearchWindowDays,
+      smoothingProfile: r.smoothingProfile as SmoothingProfile,
     };
   }
 
@@ -201,6 +205,7 @@ export class SettingsRepository {
       if (a.smoothingSearchWindowDays !== undefined) {
         values.smoothingSearchWindowDays = a.smoothingSearchWindowDays;
       }
+      if (a.smoothingProfile !== undefined) values.smoothingProfile = a.smoothingProfile;
     }
 
     const offpeakEntries = patch.offpeak

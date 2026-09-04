@@ -25,8 +25,8 @@ export const t = {
     },
     currentOption: 'Option actuelle',
     smoothing: 'Lissage jours blancs et rouges',
-    smoothingActive: (n: number, refs: number, window: number) =>
-      `Lissage actif : Base et HP / HC sont calculées sur une consommation « sans effacement » – ${n} période(s) blanche(s) ou rouge(s) relevée(s) au profil horaire moyen des ${refs} jours bleus précédents et suivants (fenêtre ${window} jours). Tempo reste sur la consommation observée.`,
+    smoothingActive: (n: number, refs: number, window: number, profile: 'median' | 'mean') =>
+      `Lissage actif : Base et HP / HC sont calculées sur une consommation « sans effacement » – ${n} période(s) blanche(s) ou rouge(s) relevée(s) au profil horaire (${profile === 'median' ? 'médiane' : 'moyenne'}) des ${refs} jours bleus précédents et suivants (fenêtre ${window} jours). Tempo reste sur la consommation observée.`,
     smoothingNoReference: (n: number) =>
       `${n} période(s) blanche(s) ou rouge(s) non lissée(s) faute de jours bleus de référence`,
     refresh: 'Actualiser',
@@ -202,6 +202,11 @@ export const t = {
       colorSwitchHour: 'Heure de bascule de la couleur Tempo',
       smoothingRefDays: 'Jours de référence de chaque côté (lissage)',
       smoothingSearchWindowDays: 'Fenêtre de recherche (jours, lissage)',
+      smoothingProfile: 'Profil de lissage',
+      smoothingProfiles: {
+        median: 'Médiane heure par heure (robuste aux recharges de véhicule électrique)',
+        mean: 'Moyenne heure par heure',
+      },
     },
   },
   errors: {

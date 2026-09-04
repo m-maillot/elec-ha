@@ -11,7 +11,12 @@ const defaults: SettingsDto = {
   grid: null,
   offpeak: { hphc: [], tempo: [{ startMin: 1320, endMin: 360 }] },
   tempo: { source: 'rte', rteClientId: null, rteSecretSet: false },
-  advanced: { colorSwitchHour: 6, smoothingRefDays: 3, smoothingSearchWindowDays: 14 },
+  advanced: {
+    colorSwitchHour: 6,
+    smoothingRefDays: 3,
+    smoothingSearchWindowDays: 14,
+    smoothingProfile: 'median',
+  },
   configured: false,
   lastSyncAt: null,
   updatedAt: null,

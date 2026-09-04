@@ -12,7 +12,12 @@ export const configuredSettings: SettingsDto = {
   grid: TARIF_BLEU_2026_08[6]!,
   offpeak: { hphc: [{ startMin: 1320, endMin: 360 }], tempo: [{ startMin: 1320, endMin: 360 }] },
   tempo: { source: 'rte', rteClientId: 'cid', rteSecretSet: true },
-  advanced: { colorSwitchHour: 6, smoothingRefDays: 3, smoothingSearchWindowDays: 14 },
+  advanced: {
+    colorSwitchHour: 6,
+    smoothingRefDays: 3,
+    smoothingSearchWindowDays: 14,
+    smoothingProfile: 'median',
+  },
   configured: true,
   lastSyncAt: '2026-09-03T08:00:00.000Z',
   updatedAt: '2026-09-03T08:00:00.000Z',

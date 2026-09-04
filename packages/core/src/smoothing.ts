@@ -21,7 +21,15 @@ export interface SmoothingOptions {
   minHoursForReference?: number;
   /** Consommation minimale (kWh) pour qu'un jour serve de référence (défaut 1). */
   minKwhForReference?: number;
+  /**
+   * Agrégation heure par heure des références : `median` (défaut, robuste à une nuit de
+   * recharge de véhicule électrique parmi les références) ou `mean`.
+   */
+  profile?: SmoothingProfile;
 }
+
+export type SmoothingProfile = 'median' | 'mean';
+export const SMOOTHING_PROFILES: readonly SmoothingProfile[] = ['median', 'mean'];
 
 /** Période à lisser : jours blancs ou rouges consécutifs. */
 export interface SmoothingPeriod {
@@ -40,6 +48,7 @@ export interface SmoothingPeriod {
 export interface SmoothingSummary {
   refDays: number;
   searchWindowDays: number;
+  profile: SmoothingProfile;
   periods: SmoothingPeriod[];
   /** Coûts totaux (abonnement inclus) de Base et HP/HC calculés sur la consommation observée. */
   costWithoutSmoothing: { base: number; hphc: number };
@@ -99,20 +108,27 @@ function indexByTempoDay(hours: readonly ResolvedHour[]): DayHours {
 }
 
 /**
- * Profil horaire de substitution : moyenne heure par heure (heure locale) des jours de
- * référence. Une heure absente d'un jour de référence n'entre pas dans sa moyenne.
+ * Profil horaire de substitution : médiane (défaut) ou moyenne, heure par heure (heure locale),
+ * des jours de référence. Une heure absente d'un jour de référence n'entre pas dans son calcul.
  */
-export function hourlyProfile(days: DayHours, references: readonly string[]): (number | null)[] {
-  const sums = new Array<number>(24).fill(0);
-  const counts = new Array<number>(24).fill(0);
+export function hourlyProfile(
+  days: DayHours,
+  references: readonly string[],
+  profile: SmoothingProfile = 'median',
+): (number | null)[] {
+  const values: number[][] = Array.from({ length: 24 }, () => []);
   for (const ref of references) {
     for (const h of days.get(ref) ?? []) {
-      const hh = Math.floor(h.minuteOfDay / 60);
-      sums[hh]! += h.kwh ?? 0;
-      counts[hh]! += 1;
+      values[Math.floor(h.minuteOfDay / 60)]!.push(h.kwh ?? 0);
     }
   }
-  return sums.map((s, i) => (counts[i]! > 0 ? s / counts[i]! : null));
+  return values.map((v) => {
+    if (v.length === 0) return null;
+    if (profile === 'mean') return v.reduce((a, b) => a + b, 0) / v.length;
+    const sorted = [...v].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 === 1 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
+  });
 }
 
 function findReferences(
@@ -167,6 +183,7 @@ export function applySmoothing(
   const window = options.searchWindowDays ?? 14;
   const minHours = options.minHoursForReference ?? 20;
   const minKwh = options.minKwhForReference ?? 1;
+  const profileMode = options.profile ?? 'median';
   const days = indexByTempoDay(referenceSeries.hours);
   const periodDays = referenceSeries === series ? days : indexByTempoDay(series.hours);
   const substituted = new Map<number, number>();
@@ -190,7 +207,7 @@ export function applySmoothing(
     };
     periods.push(period);
     if (!period.smoothed) continue;
-    const profile = hourlyProfile(days, refs);
+    const profile = hourlyProfile(days, refs, profileMode);
     for (const d of redDays) {
       const dayHours = periodDays.get(d) ?? [];
       // Le lissage ne peut qu'augmenter la consommation : si le jour a déjà consommé au moins
@@ -297,6 +314,7 @@ export function simulateWithSmoothing(
     smoothing: {
       refDays: options.refDays ?? 3,
       searchWindowDays: options.searchWindowDays ?? 14,
+      profile: options.profile ?? 'median',
       periods: smoothed.periods,
       costWithoutSmoothing: { base: plain.base.total, hphc: plain.hphc.total },
       redistributedKwh: smoothed.redistributedKwh,

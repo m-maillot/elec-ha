@@ -1,5 +1,10 @@
 import { Type, type Static } from '@sinclair/typebox';
-import { SUBSCRIBED_POWERS, TARIFF_OPTIONS, TEMPO_SOURCES } from '@elec-ha/core';
+import {
+  SMOOTHING_PROFILES,
+  SUBSCRIBED_POWERS,
+  TARIFF_OPTIONS,
+  TEMPO_SOURCES,
+} from '@elec-ha/core';
 
 export const IsoDate = Type.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}$' });
 export const TariffOptionSchema = Type.Union(TARIFF_OPTIONS.map((o) => Type.Literal(o)));
@@ -61,6 +66,7 @@ export const SettingsUpdateSchema = Type.Object({
       colorSwitchHour: Type.Optional(Type.Integer({ minimum: 0, maximum: 23 })),
       smoothingRefDays: Type.Optional(Type.Integer({ minimum: 1, maximum: 10 })),
       smoothingSearchWindowDays: Type.Optional(Type.Integer({ minimum: 1, maximum: 60 })),
+      smoothingProfile: Type.Optional(Type.Union(SMOOTHING_PROFILES.map((p) => Type.Literal(p)))),
     }),
   ),
 });

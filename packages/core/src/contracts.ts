@@ -3,7 +3,7 @@
  * Réf. spec §6.6.
  */
 import type { SimulationResult } from './simulate.js';
-import type { SmoothingSummary } from './smoothing.js';
+import type { SmoothingProfile, SmoothingSummary } from './smoothing.js';
 import type {
   OffpeakSets,
   SubscribedPower,
@@ -36,6 +36,7 @@ export interface AdvancedSettingsDto {
   colorSwitchHour: number;
   smoothingRefDays: number;
   smoothingSearchWindowDays: number;
+  smoothingProfile: SmoothingProfile;
 }
 
 export interface SettingsDto {

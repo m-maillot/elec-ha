@@ -21,6 +21,7 @@ describe('/api/settings', () => {
       colorSwitchHour: 6,
       smoothingRefDays: 3,
       smoothingSearchWindowDays: 14,
+      smoothingProfile: 'median',
     });
     expect(body.tempo.source).toBe('rte');
   });
