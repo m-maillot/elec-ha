@@ -64,6 +64,10 @@ export const simulation: SimulateResponse = {
   },
   best: 'hphc',
   warnings: [],
+  days: [
+    { date: '2026-01-15', color: 'red', kwh: 10, hpKwh: 4, hcKwh: 6, presentHours: 24 },
+    { date: '2026-01-16', color: 'blue', kwh: 0, hpKwh: 0, hcKwh: 0, presentHours: 18 },
+  ],
   smoothingApplied: false,
   lastSyncAt: '2026-09-03T08:00:00.000Z',
 };

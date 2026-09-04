@@ -66,6 +66,17 @@ describe('simulate – exemple de contrôle §5.6', () => {
     expect(r.hours).toEqual({ expected: 48, present: 48, missing: 0 });
   });
 
+  it('fournit une ligne par jour Tempo', () => {
+    expect(r.days.map((d) => d.date)).toEqual(['2026-01-15', '2026-01-16']);
+    expect(r.days[0]).toMatchObject({ color: 'red', presentHours: 24 });
+    expect(r.days[0]!.kwh).toBeCloseTo(10, 9);
+    expect(r.days[0]!.hpKwh).toBeCloseTo(4, 9);
+    expect(r.days[0]!.hcKwh).toBeCloseTo(6, 9);
+    expect(r.days[0]!.addedKwh).toBeUndefined();
+    // Le 16/01 n'a que 18 h dans la période (06:00 → 24:00), à 0 kWh
+    expect(r.days[1]).toMatchObject({ color: 'blue', kwh: 0, presentHours: 18 });
+  });
+
   it('prix moyen = consommation ÷ kWh', () => {
     expect(r.base.averagePrice).toBeCloseTo(0.2001, 9);
     expect(r.tempo.averagePrice).toBeCloseTo(0.3887, 9);

@@ -53,20 +53,26 @@ describe('ComparisonCards – lissage', () => {
         periods: [
           {
             days: ['2026-01-15'],
+            colors: ['red' as const],
             referencesBefore: ['2026-01-12', '2026-01-13', '2026-01-14'],
             referencesAfter: ['2026-01-16', '2026-01-17', '2026-01-18'],
             smoothed: true,
+            skippedDays: [],
           },
         ],
-        costWithoutSmoothing: 3.21,
+        costWithoutSmoothing: { base: 3.21, hphc: 2.6 },
         redistributedKwh: 22,
         substitutedHours: [],
       },
     };
     render(<ComparisonCards result={smoothed} />);
+    const base = screen.getByRole('region', { name: 'Base' });
+    expect(within(base).getByText('Coût sur la conso observée')).toBeInTheDocument();
+    expect(within(base).getByText(/3,21\s€/)).toBeInTheDocument();
+    expect(within(base).getByText(/\+22\skWh/)).toBeInTheDocument();
+    const hphc = screen.getByRole('region', { name: 'HP / HC' });
+    expect(within(hphc).getByText(/2,60\s€/)).toBeInTheDocument();
     const tempo = screen.getByRole('region', { name: 'Tempo' });
-    expect(within(tempo).getByText('Coût sans lissage')).toBeInTheDocument();
-    expect(within(tempo).getByText(/3,21\s€/)).toBeInTheDocument();
-    expect(within(tempo).getByText(/\+22\skWh/)).toBeInTheDocument();
+    expect(within(tempo).queryByText('Coût sur la conso observée')).not.toBeInTheDocument();
   });
 });

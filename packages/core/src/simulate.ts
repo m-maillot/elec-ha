@@ -104,6 +104,23 @@ export interface TempoCost extends OptionCost {
   byColor: Record<TempoColor, TempoColorDetail>;
 }
 
+/** Récapitulatif d'un jour Tempo (fenêtre 06:00 → 06:00 J+1) de la période. */
+export interface DayRow {
+  date: string;
+  color: TempoColor | null;
+  /** kWh observés, `null` si aucune heure présente. */
+  kwh: number | null;
+  /** Répartition selon les créneaux HC de l'option Tempo. */
+  hpKwh: number;
+  hcKwh: number;
+  presentHours: number;
+  /** kWh ajoutés par le lissage (Σ E′ − E), présent uniquement quand le lissage est actif. */
+  addedKwh?: number;
+  /** Répartition HP / HC après lissage (créneaux Tempo), présente uniquement avec le lissage. */
+  smoothedHpKwh?: number;
+  smoothedHcKwh?: number;
+}
+
 export interface SimulationResult {
   period: Period & { days: number };
   kwhTotal: number;
@@ -118,6 +135,8 @@ export interface SimulationResult {
   /** Option la moins chère (Tempo ignorée si partielle). */
   best: TariffOption;
   warnings: SimulationWarning[];
+  /** Une ligne par jour Tempo de `from` à `to` (les heures avant la bascule du premier jour n'y figurent pas). */
+  days: DayRow[];
 }
 
 // ---------------------------------------------------------------------------
@@ -231,11 +250,30 @@ export function simulateResolved(input: SimulationInput, series: ResolvedSeries)
   };
   let excludedKwh = 0;
   const excludedDays = new Set<string>();
+  const dayRows = new Map<string, DayRow>();
+  for (const date of periodDays) {
+    dayRows.set(date, {
+      date,
+      color: tempoCalendar[date] ?? null,
+      kwh: null,
+      hpKwh: 0,
+      hcKwh: 0,
+      presentHours: 0,
+    });
+  }
 
   for (const h of series.hours) {
     if (h.kwh === null) continue;
     present++;
     presentPerDay.set(h.date, (presentPerDay.get(h.date) ?? 0) + 1);
+    const row = dayRows.get(h.tempoDay);
+    if (row) {
+      const hcT = h.kwh * hcShareTempo(h.minuteOfDay);
+      row.kwh = (row.kwh ?? 0) + h.kwh;
+      row.hcKwh += hcT;
+      row.hpKwh += h.kwh - hcT;
+      row.presentHours++;
+    }
     if (h.negative) negativeHours++;
     const kwh = h.kwh;
     kwhTotal += kwh;
@@ -388,5 +426,6 @@ export function simulateResolved(input: SimulationInput, series: ResolvedSeries)
     tempo,
     best,
     warnings,
+    days: [...dayRows.values()],
   };
 }

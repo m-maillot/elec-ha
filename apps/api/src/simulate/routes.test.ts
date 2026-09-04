@@ -92,19 +92,24 @@ describe('POST /api/simulate et GET /api/consumption', () => {
       expect(r.smoothing.periods).toEqual([
         {
           days: ['2026-01-15'],
+          colors: ['red'],
           referencesBefore: ['2026-01-14'],
           referencesAfter: ['2026-01-16'],
           smoothed: true,
+          skippedDays: [],
         },
       ]);
-      // Profil 1 kWh/h → 24 kWh sur le jour rouge au lieu de 10
+      // Profil 1 kWh/h → 24 kWh sur le jour rouge au lieu de 10, appliqué à Base et HP/HC
       expect(r.smoothing.redistributedKwh).toBeCloseTo(14, 6);
       expect(r.smoothing.substitutedHours).toHaveLength(24);
-      expect(r.tempo.byColor.red.hpKwh).toBeCloseTo(16, 6);
-      expect(r.tempo.byColor.red.hcKwh).toBeCloseTo(8, 6);
-      // Base inchangée : 10 kWh (jour rouge) + 24 h à 1 kWh
-      expect(r.base.consumption).toBeCloseTo(34 * 0.2001, 6);
-      expect(r.smoothing.costWithoutSmoothing).toBeLessThan(r.tempo.total);
+      expect(r.base.consumption).toBeCloseTo((34 + 14) * 0.2001, 6);
+      expect(r.smoothing.costWithoutSmoothing.base).toBeCloseTo(
+        34 * 0.2001 + (190.32 * 2) / 365,
+        6,
+      );
+      // Tempo reste sur la consommation observée
+      expect(r.tempo.byColor.red.hpKwh).toBeCloseTo(4, 6);
+      expect(r.tempo.byColor.red.hcKwh).toBeCloseTo(6, 6);
     } finally {
       await app2.close();
       await ha2.close();

@@ -9,7 +9,7 @@ import {
   type SimulationResult,
   type SimulationWarning,
 } from './simulate.js';
-import type { TariffOption, TempoCalendar } from './types.js';
+import type { TariffOption, TempoCalendar, TempoColor } from './types.js';
 
 /** Paramètres avancés du lissage (§5.5). */
 export interface SmoothingOptions {
@@ -19,24 +19,30 @@ export interface SmoothingOptions {
   searchWindowDays?: number;
   /** Nombre minimal d'heures présentes pour qu'un jour serve de référence (défaut 20). */
   minHoursForReference?: number;
+  /** Consommation minimale (kWh) pour qu'un jour serve de référence (défaut 1). */
+  minKwhForReference?: number;
 }
 
-export interface RedPeriod {
-  /** Jours rouges consécutifs (dates civiles). */
+/** Période à lisser : jours blancs ou rouges consécutifs. */
+export interface SmoothingPeriod {
+  /** Jours consécutifs (dates civiles) et leur couleur. */
   days: string[];
+  colors: TempoColor[];
   /** Jours de référence retenus avant / après la période. */
   referencesBefore: string[];
   referencesAfter: string[];
   /** `false` si aucune référence n'a été trouvée : la période est laissée telle quelle. */
   smoothed: boolean;
+  /** Jours de la période laissés tels quels malgré des références. */
+  skippedDays: Array<{ date: string; reason: 'no_consumption' | 'above_profile' }>;
 }
 
 export interface SmoothingSummary {
   refDays: number;
   searchWindowDays: number;
-  periods: RedPeriod[];
-  /** Coût total Tempo (abonnement inclus) sans lissage. */
-  costWithoutSmoothing: number;
+  periods: SmoothingPeriod[];
+  /** Coûts totaux (abonnement inclus) de Base et HP/HC calculés sur la consommation observée. */
+  costWithoutSmoothing: { base: number; hphc: number };
   /** Σ (E′ − E) sur les heures substituées : énergie ajoutée (ou retirée si négative). */
   redistributedKwh: number;
   /** Heures substituées : début UTC → kWh lissés (pour la superposition graphique). */
@@ -47,15 +53,25 @@ export interface SmoothedSimulationResult extends SimulationResult {
   smoothing: SmoothingSummary;
 }
 
-/** Regroupe les jours rouges consécutifs de `[from, to]` en périodes rouges. */
-export function groupRedPeriods(calendar: TempoCalendar, from: string, to: string): string[][] {
-  const periods: string[][] = [];
-  let current: string[] | null = null;
+/**
+ * Regroupe les jours blancs ou rouges consécutifs de `[from, to]` en périodes à lisser
+ * (un bloc blanc + rouge forme une seule période).
+ */
+export function groupSmoothingPeriods(
+  calendar: TempoCalendar,
+  from: string,
+  to: string,
+): Array<{ days: string[]; colors: TempoColor[] }> {
+  const periods: Array<{ days: string[]; colors: TempoColor[] }> = [];
+  let current: { days: string[]; colors: TempoColor[] } | null = null;
   for (const d of eachDay(from, to)) {
-    if (calendar[d] === 'red') {
-      if (current && addDays(current[current.length - 1]!, 1) === d) current.push(d);
-      else {
-        current = [d];
+    const color = calendar[d];
+    if (color === 'red' || color === 'white') {
+      if (current && addDays(current.days[current.days.length - 1]!, 1) === d) {
+        current.days.push(d);
+        current.colors.push(color);
+      } else {
+        current = { days: [d], colors: [color] };
         periods.push(current);
       }
     } else {
@@ -107,26 +123,27 @@ function findReferences(
   count: number,
   window: number,
   minHours: number,
+  minKwh: number,
 ): string[] {
   const refs: string[] = [];
   for (let i = 1; i <= window && refs.length < count; i++) {
     const d = addDays(start, i * direction);
-    const color = calendar[d];
-    // Sont sautés : jours rouges (y compris d'une autre période), jours sans couleur connue,
-    // jours incomplets et jours à consommation nulle.
-    if (color === undefined || color === 'red') continue;
+    // Seuls les jours bleus servent de référence : blancs, rouges et jours sans couleur
+    // connue sont sautés, ainsi que les jours incomplets ou à consommation nulle.
+    if (calendar[d] !== 'blue') continue;
     const hours = days.get(d) ?? [];
     if (hours.length < minHours) continue;
-    // Un jour à consommation nulle n'est pas une référence (index non mis à jour, capteur en panne).
-    if (hours.reduce((sum, h) => sum + (h.kwh ?? 0), 0) <= 0) continue;
+    // Un jour à consommation (quasi) nulle n'est pas une référence (index non mis à jour, capteur en panne).
+    if (hours.reduce((sum, h) => sum + (h.kwh ?? 0), 0) < minKwh) continue;
     refs.push(d);
   }
   return direction === -1 ? refs.reverse() : refs;
 }
 
 /**
- * Applique le lissage (§5.5) à une série résolue : pour chaque période rouge, les heures des
- * jours rouges (fenêtre de couleur) sont remplacées par le profil moyen des jours de référence.
+ * Applique le lissage (§5.5) à une série résolue : pour chaque période blanche/rouge, les heures
+ * des jours concernés (fenêtre de couleur) sont remplacées par le profil moyen des jours bleus
+ * de référence, uniquement si cela augmente la consommation du jour (jamais vers le bas).
  * Seules les heures présentes sont substituées (les trous restent des trous).
  * `referenceSeries` (défaut : `series`) peut couvrir une période plus large pour trouver des
  * références avant/après la période analysée.
@@ -140,40 +157,67 @@ export function applySmoothing(
   referenceSeries: ResolvedSeries = series,
 ): {
   series: ResolvedSeries;
-  periods: RedPeriod[];
+  periods: SmoothingPeriod[];
   redistributedKwh: number;
   substituted: Map<number, number>;
+  /** kWh ajoutés par jour Tempo lissé. */
+  addedByDay: Map<string, number>;
 } {
   const refDays = options.refDays ?? 3;
   const window = options.searchWindowDays ?? 14;
   const minHours = options.minHoursForReference ?? 20;
+  const minKwh = options.minKwhForReference ?? 1;
   const days = indexByTempoDay(referenceSeries.hours);
   const periodDays = referenceSeries === series ? days : indexByTempoDay(series.hours);
   const substituted = new Map<number, number>();
-  const periods: RedPeriod[] = [];
+  const periods: SmoothingPeriod[] = [];
+  const addedByDay = new Map<string, number>();
   let redistributedKwh = 0;
 
-  for (const redDays of groupRedPeriods(calendar, from, to)) {
+  for (const { days: redDays, colors } of groupSmoothingPeriods(calendar, from, to)) {
     const first = redDays[0]!;
     const last = redDays[redDays.length - 1]!;
-    const before = findReferences(days, calendar, first, -1, refDays, window, minHours);
-    const after = findReferences(days, calendar, last, 1, refDays, window, minHours);
+    const before = findReferences(days, calendar, first, -1, refDays, window, minHours, minKwh);
+    const after = findReferences(days, calendar, last, 1, refDays, window, minHours, minKwh);
     const refs = [...before, ...after];
-    const period: RedPeriod = {
+    const period: SmoothingPeriod = {
       days: redDays,
+      colors,
       referencesBefore: before,
       referencesAfter: after,
       smoothed: refs.length > 0,
+      skippedDays: [],
     };
     periods.push(period);
     if (!period.smoothed) continue;
     const profile = hourlyProfile(days, refs);
     for (const d of redDays) {
-      for (const h of periodDays.get(d) ?? []) {
+      const dayHours = periodDays.get(d) ?? [];
+      // Le lissage ne peut qu'augmenter la consommation : si le jour a déjà consommé au moins
+      // autant que le profil des jours bleus (sur ses heures présentes), il est laissé tel quel.
+      let actual = 0;
+      let expected = 0;
+      for (const h of dayHours) {
+        const value = profile[Math.floor(h.minuteOfDay / 60)] ?? null;
+        if (value === null) continue;
+        actual += h.kwh ?? 0;
+        expected += value;
+      }
+      // Un jour sans consommation n'est pas un effacement mais une donnée manquante (index figé).
+      if (actual < minKwh) {
+        period.skippedDays.push({ date: d, reason: 'no_consumption' });
+        continue;
+      }
+      if (expected <= actual) {
+        period.skippedDays.push({ date: d, reason: 'above_profile' });
+        continue;
+      }
+      for (const h of dayHours) {
         const value = profile[Math.floor(h.minuteOfDay / 60)] ?? null;
         if (value === null) continue;
         substituted.set(h.startUtc, value);
         redistributedKwh += value - (h.kwh ?? 0);
+        addedByDay.set(d, (addedByDay.get(d) ?? 0) + value - (h.kwh ?? 0));
       }
     }
   }
@@ -182,7 +226,7 @@ export function applySmoothing(
     const v = substituted.get(h.startUtc);
     return v === undefined ? h : { ...h, kwh: v, negative: false };
   });
-  return { series: { ...series, hours }, periods, redistributedKwh, substituted };
+  return { series: { ...series, hours }, periods, redistributedKwh, substituted, addedByDay };
 }
 
 function delta(cost: number, current: number, isCurrent: boolean): Delta | null {
@@ -192,8 +236,9 @@ function delta(cost: number, current: number, isCurrent: boolean): Delta | null 
 }
 
 /**
- * Simulation avec lissage des jours rouges : Base et HP/HC sont calculées sur la série
- * observée, Tempo sur la série lissée ; écarts et meilleure option recalculés en conséquence.
+ * Simulation avec lissage des jours blancs et rouges : Base et HP/HC sont calculées sur la
+ * série lissée (consommation estimée sans effacement), Tempo sur la série observée ;
+ * écarts et meilleure option recalculés en conséquence.
  */
 export function simulateWithSmoothing(
   input: SimulationInput,
@@ -213,16 +258,16 @@ export function simulateWithSmoothing(
   const withSmoothing = simulateResolved(input, smoothed.series);
 
   const totals: Record<TariffOption, number> = {
-    base: plain.base.total,
-    hphc: plain.hphc.total,
-    tempo: withSmoothing.tempo.total,
+    base: withSmoothing.base.total,
+    hphc: withSmoothing.hphc.total,
+    tempo: plain.tempo.total,
   };
   const current = totals[input.currentOption];
   const recalc = <T extends { option: TariffOption; total: number }>(r: T): T => ({
     ...r,
     deltaVsCurrent: delta(r.total, current, r.option === input.currentOption),
   });
-  const tempo = recalc(withSmoothing.tempo);
+  const tempo = recalc(plain.tempo);
   const candidates: TariffOption[] = tempo.partial ? ['base', 'hphc'] : ['base', 'hphc', 'tempo'];
   const best = candidates.reduce((a, b) => (totals[b] < totals[a] ? b : a));
 
@@ -231,23 +276,29 @@ export function simulateWithSmoothing(
   if (unsmoothed.length > 0) {
     warnings.push({
       code: 'smoothing_no_reference',
-      message: `${unsmoothed.length} période(s) rouge(s) non lissée(s) faute de jours de référence.`,
+      message: `${unsmoothed.length} période(s) blanche(s)/rouge(s) non lissée(s) faute de jours bleus de référence.`,
       days: unsmoothed.flatMap((p) => p.days),
     });
   }
 
   return {
     ...plain,
-    base: recalc(plain.base),
-    hphc: recalc(plain.hphc),
+    base: recalc(withSmoothing.base),
+    hphc: recalc(withSmoothing.hphc),
     tempo,
     best,
     warnings,
+    days: plain.days.map((d, i) => ({
+      ...d,
+      addedKwh: smoothed.addedByDay.get(d.date) ?? 0,
+      smoothedHpKwh: withSmoothing.days[i]?.hpKwh ?? d.hpKwh,
+      smoothedHcKwh: withSmoothing.days[i]?.hcKwh ?? d.hcKwh,
+    })),
     smoothing: {
       refDays: options.refDays ?? 3,
       searchWindowDays: options.searchWindowDays ?? 14,
       periods: smoothed.periods,
-      costWithoutSmoothing: plain.tempo.total,
+      costWithoutSmoothing: { base: plain.base.total, hphc: plain.hphc.total },
       redistributedKwh: smoothed.redistributedKwh,
       substitutedHours: [...smoothed.substituted.entries()]
         .sort((a, b) => a[0] - b[0])

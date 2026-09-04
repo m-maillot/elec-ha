@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Projet** | Comparateur d'options tarifaires EDF (Base / HP-HC / Tempo) |
-| **Version** | 0.4 – règles de référence du lissage précisées |
+| **Version** | 0.5 – lissage étendu aux jours blancs, tableau par jour |
 | **Date** | 3 septembre 2026 |
 | **Auteur** | Martial |
 | **Statut** | Validée pour démarrage |
@@ -16,6 +16,7 @@
 | 0.2 | 03/09/2026 | Arbitrages des questions ouvertes : lissage sur 3 jours non rouges de part et d'autre de la période rouge, API RTE par défaut, grille unique, standalone sans authentification |
 | 0.3 | 03/09/2026 | Plusieurs entités de consommation additionnées (ex. index HP + index HC du Linky) ; suppression de la source « entité HA » pour les couleurs Tempo (API RTE + CSV uniquement) |
 | 0.4 | 04/09/2026 | Lissage : les jours à consommation nulle ne servent jamais de référence ; références possibles hors de la période analysée |
+| 0.5 | 04/09/2026 | Lissage étendu aux jours **blancs** (références = jours bleus uniquement), uniquement vers le haut, jours sans consommation exclus ; le lissage s'applique à **Base et HP/HC** (Tempo reste observé) ; tableau récapitulatif par jour (§4.2.5) |
 
 ---
 
@@ -28,7 +29,7 @@ Le projet consiste à développer une **interface web autonome** qui :
 1. récupère la consommation collectée par HA sur une période choisie ;
 2. simule le coût de cette consommation pour chacune des trois options du Tarif Bleu : **Base**, **Heures Pleines / Heures Creuses (HP/HC)** et **Tempo** ;
 3. présente les résultats côte à côte, avec le détail des répartitions (HP/HC, couleurs Tempo) ;
-4. permet, pour Tempo, de « lisser » la consommation des jours rouges afin de simuler un comportement sans effacement.
+4. permet de « lisser » la consommation des jours blancs et rouges afin d'estimer, pour les options Base et HP/HC, ce que coûterait un comportement sans effacement (Tempo reste sur la consommation observée).
 
 Les tarifs et créneaux horaires sont **entièrement paramétrables** par l'utilisateur, l'application ne dépend donc pas d'une grille tarifaire figée.
 
@@ -180,7 +181,7 @@ La carte la moins chère est mise en évidence (« meilleure option »).
 | Blanc | | | | | | |
 | Rouge | | | | | | |
 
-Lorsque le lissage est actif, la carte Tempo affiche en plus « Coût sans lissage : X € » et « kWh redistribués sur les jours rouges : Y kWh ».
+Lorsque le lissage est actif (v0.5), les cartes **Base** et **HP/HC** affichent en plus « Coût sur la conso observée : X € » et « kWh ajoutés par le lissage : Y kWh » ; la carte Tempo reste sur la consommation observée.
 
 #### 4.2.4 États et messages
 
@@ -188,6 +189,10 @@ Lorsque le lissage est actif, la carte Tempo affiche en plus « Coût sans lissa
 - Chargement HA en cours → barre de progression par tranche de jours.
 - Données partielles (jours manquants côté HA ou couleurs Tempo inconnues) → bandeau d'avertissement listant les jours concernés ; les jours sans couleur Tempo sont **exclus** du calcul Tempo et signalés (le total Tempo est alors marqué « partiel »).
 - Erreur HA (401, réseau) → message explicite + lien vers la configuration.
+
+#### 4.2.5 Tableau récapitulatif par jour (v0.5)
+
+En fin d'écran principal, un tableau liste chaque **jour Tempo** (06:00 → 06:00 J+1) de la période : date, couleur (pastille + libellé), consommation totale, consommation HP et HC (créneaux de l'option Tempo), heures manquantes le cas échéant, et – lorsque le lissage est actif – les **kWh ajoutés** par le lissage ainsi que les consommations **HP et HC après lissage**. En-tête fixe et zone défilante pour les longues périodes.
 
 ## 5. Règles de calcul
 
@@ -235,17 +240,17 @@ Tempo  = Σ [ E_HP(h) × prixHP[c(d(h))] + E_HC(h) × prixHC[c(d(h))] ] + abo(Te
 
 **Problème** : un foyer déjà en Tempo réduit fortement sa consommation les jours rouges (chauffage coupé, report des usages). Son historique sous-estime donc ce que coûterait Tempo « sans effort », et inversement un foyer en Base ne voit pas l'intérêt de l'effacement. Le lissage permet de simuler une consommation « normale » les jours rouges.
 
-**Algorithme** (appliqué uniquement au calcul Tempo, jamais aux autres options ni au graphique par défaut) :
+**Algorithme** (v0.5 : appliqué aux calculs **Base et HP/HC** – consommation estimée sans effacement – jamais au calcul Tempo, qui reste sur la consommation observée, ni au graphique par défaut) :
 
-Les jours rouges sont d'abord regroupés en **périodes rouges** = suites de jours rouges consécutifs (un jour rouge isolé est une période de longueur 1). Les jours rouges ne peuvent jamais servir de référence.
+Depuis la v0.5, le lissage s'applique aux jours **blancs et rouges**. Ils sont regroupés en **périodes à lisser** = suites de jours blancs ou rouges consécutifs (un bloc blanc + rouge forme une seule période ; un jour isolé est une période de longueur 1). Seuls les **jours bleus** peuvent servir de référence.
 
 Pour chaque période rouge `[R1 … Rk]` :
 
-1. Chercher les **3 jours non-rouges** les plus proches **avant** `R1` et les **3 jours non-rouges** les plus proches **après** `Rk`. On saute les jours rouges (y compris ceux d'une autre période rouge voisine), les jours sans données ou incomplets, les jours sans couleur connue et les **jours à consommation nulle** (index non mis à jour, capteur en panne – v0.4). Fenêtre de recherche maximale : 14 jours de chaque côté (paramètre avancé `smoothingSearchWindowDays`). Les références peuvent se trouver hors de la période analysée si les données sont en cache.
+1. Chercher les **3 jours bleus** les plus proches **avant** `R1` et les **3 jours bleus** les plus proches **après** `Rk`. On saute les jours blancs et rouges (y compris ceux d'une autre période voisine), les jours sans données ou incomplets, les jours sans couleur connue et les **jours à consommation quasi nulle** (< 1 kWh : index non mis à jour, capteur en panne – v0.4/v0.5). Fenêtre de recherche maximale : 14 jours de chaque côté (paramètre avancé `smoothingSearchWindowDays`). Les références peuvent se trouver hors de la période analysée si les données sont en cache.
 2. Construire un profil horaire de substitution unique pour la période, moyenne **heure par heure** des jours de référence trouvés (jusqu'à 6) :
    `E'(hh) = moyenne( E(J, hh) pour J ∈ références )` pour chaque heure `hh` de 0 à 23 (heure locale). La moyenne heure par heure conserve le profil HP/HC.
 3. Cas dégradés : si moins de 3 jours sont trouvés d'un côté (début/fin de période analysée), on utilise ce qui est disponible ; si aucun jour de référence n'existe des deux côtés, la période rouge est laissée telle quelle et signalée dans le bandeau d'avertissement.
-4. Appliquer `E'(hh)` à chaque jour `Ri` de la période rouge, sur sa fenêtre de couleur (06:00 → 06:00 J+1), puis appliquer §5.4.
+4. Appliquer `E'(hh)` à chaque jour `Ri` de la période, sur sa fenêtre de couleur (06:00 → 06:00 J+1), puis appliquer §5.4 pour Base et HP/HC (Tempo sur la série observée). **Le lissage ne va que vers le haut** (v0.5) : si la consommation observée du jour est déjà supérieure ou égale au total du profil sur ses heures présentes, le jour est laissé tel quel. Un jour blanc ou rouge à consommation quasi nulle (< 1 kWh) n'est **pas** lissé non plus : c'est une donnée manquante (index figé), pas un effacement.
 
 Paramètres avancés (écran de configuration, valeurs par défaut suffisantes) : nombre de jours de référence de chaque côté `N = 3` ; fenêtre de recherche `14` jours. Les week-ends ne sont pas exclus des références (les jours rouges sont toujours des jours de semaine, la moyenne sur 3 jours atténue l'effet d'un éventuel week-end).
 
