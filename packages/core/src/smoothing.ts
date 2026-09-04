@@ -41,8 +41,8 @@ export interface SmoothingSummary {
   refDays: number;
   searchWindowDays: number;
   periods: SmoothingPeriod[];
-  /** Coût total Tempo (abonnement inclus) sans lissage. */
-  costWithoutSmoothing: number;
+  /** Coûts totaux (abonnement inclus) de Base et HP/HC calculés sur la consommation observée. */
+  costWithoutSmoothing: { base: number; hphc: number };
   /** Σ (E′ − E) sur les heures substituées : énergie ajoutée (ou retirée si négative). */
   redistributedKwh: number;
   /** Heures substituées : début UTC → kWh lissés (pour la superposition graphique). */
@@ -237,7 +237,8 @@ function delta(cost: number, current: number, isCurrent: boolean): Delta | null 
 
 /**
  * Simulation avec lissage des jours blancs et rouges : Base et HP/HC sont calculées sur la
- * série observée, Tempo sur la série lissée ; écarts et meilleure option recalculés.
+ * série lissée (consommation estimée sans effacement), Tempo sur la série observée ;
+ * écarts et meilleure option recalculés en conséquence.
  */
 export function simulateWithSmoothing(
   input: SimulationInput,
@@ -257,16 +258,16 @@ export function simulateWithSmoothing(
   const withSmoothing = simulateResolved(input, smoothed.series);
 
   const totals: Record<TariffOption, number> = {
-    base: plain.base.total,
-    hphc: plain.hphc.total,
-    tempo: withSmoothing.tempo.total,
+    base: withSmoothing.base.total,
+    hphc: withSmoothing.hphc.total,
+    tempo: plain.tempo.total,
   };
   const current = totals[input.currentOption];
   const recalc = <T extends { option: TariffOption; total: number }>(r: T): T => ({
     ...r,
     deltaVsCurrent: delta(r.total, current, r.option === input.currentOption),
   });
-  const tempo = recalc(withSmoothing.tempo);
+  const tempo = recalc(plain.tempo);
   const candidates: TariffOption[] = tempo.partial ? ['base', 'hphc'] : ['base', 'hphc', 'tempo'];
   const best = candidates.reduce((a, b) => (totals[b] < totals[a] ? b : a));
 
@@ -282,8 +283,8 @@ export function simulateWithSmoothing(
 
   return {
     ...plain,
-    base: recalc(plain.base),
-    hphc: recalc(plain.hphc),
+    base: recalc(withSmoothing.base),
+    hphc: recalc(withSmoothing.hphc),
     tempo,
     best,
     warnings,
@@ -297,7 +298,7 @@ export function simulateWithSmoothing(
       refDays: options.refDays ?? 3,
       searchWindowDays: options.searchWindowDays ?? 14,
       periods: smoothed.periods,
-      costWithoutSmoothing: plain.tempo.total,
+      costWithoutSmoothing: { base: plain.base.total, hphc: plain.hphc.total },
       redistributedKwh: smoothed.redistributedKwh,
       substitutedHours: [...smoothed.substituted.entries()]
         .sort((a, b) => a[0] - b[0])

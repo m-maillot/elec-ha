@@ -78,19 +78,22 @@ describe('lissage – exemple de contrôle §5.6', () => {
     const day14 = r.days.find((d) => d.date === '2026-01-14')!;
     expect(day14.smoothedHpKwh).toBeCloseTo(day14.hpKwh, 9);
     expect(r.days.find((d) => d.date === '2026-01-14')!.addedKwh).toBe(0);
-    expect(r.tempo.byColor.red.hpKwh).toBeCloseTo(12.8, 9);
-    expect(r.tempo.byColor.red.hcKwh).toBeCloseTo(19.2, 9);
-    expect(r.tempo.byColor.red.total).toBeCloseTo(12.4384, 6); // 12,8 × 0,7295 + 19,2 × 0,1615 (la spec arrondit à 12,438)
-    expect(r.smoothing.redistributedKwh).toBeCloseTo(22, 9);
-    // Sans lissage : 3,887 € pour le jour rouge
+    // Tempo reste sur la consommation observée : 3,887 € pour le jour rouge
     const plain = simulate(input(profiles, { '2026-01-15': 'red' }));
-    expect(plain.tempo.byColor.red.total).toBeCloseTo(3.887, 6);
-    expect(r.smoothing.costWithoutSmoothing).toBeCloseTo(plain.tempo.total, 9);
-    expect(r.tempo.total - r.smoothing.costWithoutSmoothing).toBeCloseTo(12.4384 - 3.887, 6);
-    // Base et HP/HC restent calculées sur la série observée
-    expect(r.base.total).toBeCloseTo(plain.base.total, 9);
-    expect(r.hphc.total).toBeCloseTo(plain.hphc.total, 9);
-    expect(r.tempo.deltaVsCurrent!.amount).toBeCloseTo(r.tempo.total - r.base.total, 9);
+    expect(r.tempo.byColor.red.total).toBeCloseTo(3.887, 6);
+    expect(r.tempo.total).toBeCloseTo(plain.tempo.total, 9);
+    // Base et HP/HC sont calculées sur la série lissée : 22 kWh de plus (10 → 32 le jour rouge)
+    expect(r.smoothing.redistributedKwh).toBeCloseTo(22, 9);
+    expect(r.base.kwh).toBeCloseTo(plain.base.kwh + 22, 9);
+    expect(r.base.total - plain.base.total).toBeCloseTo(22 * 0.2001, 6);
+    expect(r.hphc.total - plain.hphc.total).toBeCloseTo(8.8 * 0.2142 + 13.2 * 0.1589, 6);
+    expect(r.smoothing.costWithoutSmoothing).toEqual({
+      base: plain.base.total,
+      hphc: plain.hphc.total,
+    });
+    expect(r.hphc.deltaVsCurrent!.amount).toBeCloseTo(r.hphc.total - r.base.total, 9);
+    // Le jour rouge lissé vaudrait 12,4384 € en Tempo (12,8 × 0,7295 + 19,2 × 0,1615, la spec arrondit à 12,438)
+    expect(12.8 * 0.7295 + 19.2 * 0.1615).toBeCloseTo(12.4384, 6);
     expect(r.smoothing.substitutedHours).toHaveLength(24);
     expect(r.warnings).toEqual([]);
   });
@@ -104,9 +107,10 @@ describe('lissage – exemple de contrôle §5.6', () => {
       referencesAfter: ['2026-01-17', '2026-01-18', '2026-01-19'],
       smoothed: true,
     });
-    // E′ = (30+32+28+36+32+30)/6 = 31,333 kWh appliqué aux deux jours
-    expect(r.tempo.byColor.red.hpKwh).toBeCloseTo(2 * 31.3333333 * 0.4, 5);
+    // E′ = (30+32+28+36+32+30)/6 = 31,333 kWh appliqué aux deux jours (Base/HP-HC)
     expect(r.smoothing.redistributedKwh).toBeCloseTo(2 * 31.3333333 - 19, 5);
+    const day15 = r.days.find((d) => d.date === '2026-01-15')!;
+    expect(day15.smoothedHpKwh! + day15.smoothedHcKwh!).toBeCloseTo(31.3333333, 5);
   });
 
   it('saute les jours rouges voisins et les jours sans données ; utilise ce qui existe', () => {
@@ -191,7 +195,7 @@ describe('jours blancs', () => {
       smoothed: true,
     });
     // (20 + 24 + 28 + 24) / 4 = 24 kWh
-    expect(r.tempo.byColor.white.hpKwh).toBeCloseTo(24 * 0.4, 6);
+    expect(r.days.find((d) => d.date === '2026-01-15')!.smoothedHpKwh).toBeCloseTo(24 * 0.4, 6);
     expect(r.smoothing.redistributedKwh).toBeCloseTo(16, 6);
   });
 
@@ -213,8 +217,8 @@ describe('jours blancs', () => {
       referencesBefore: ['2026-01-13'],
       referencesAfter: ['2026-01-17'],
     });
-    expect(r.tempo.byColor.white.hpKwh).toBeCloseTo(30 * 0.4, 6);
-    expect(r.tempo.byColor.red.hpKwh).toBeCloseTo(2 * 30 * 0.4, 6);
+    expect(r.days.find((d) => d.date === '2026-01-14')!.smoothedHpKwh).toBeCloseTo(30 * 0.4, 6);
+    expect(r.days.find((d) => d.date === '2026-01-15')!.smoothedHpKwh).toBeCloseTo(30 * 0.4, 6);
   });
 });
 
@@ -234,7 +238,6 @@ describe('lissage uniquement vers le haut', () => {
     ]);
     expect(r.smoothing.redistributedKwh).toBe(0);
     expect(r.smoothing.substitutedHours).toHaveLength(0);
-    expect(r.tempo.byColor.red.hpKwh).toBeCloseTo(35 * 0.4, 6);
     expect(r.days.find((d) => d.date === '2026-01-15')!.addedKwh).toBe(0);
   });
 
@@ -251,8 +254,8 @@ describe('lissage uniquement vers le haut', () => {
     // Profil = 30 kWh : le 14 (40) reste, le 15 (10) monte à 30
     expect(r.days.find((d) => d.date === '2026-01-14')!.addedKwh).toBe(0);
     expect(r.days.find((d) => d.date === '2026-01-15')!.addedKwh).toBeCloseTo(20, 6);
-    expect(r.tempo.byColor.white.hpKwh).toBeCloseTo(40 * 0.4, 6);
-    expect(r.tempo.byColor.red.hpKwh).toBeCloseTo(30 * 0.4, 6);
+    expect(r.days.find((d) => d.date === '2026-01-14')!.smoothedHpKwh).toBeCloseTo(40 * 0.4, 6);
+    expect(r.days.find((d) => d.date === '2026-01-15')!.smoothedHpKwh).toBeCloseTo(30 * 0.4, 6);
   });
 });
 
@@ -278,7 +281,6 @@ describe('jours à consommation (quasi) nulle', () => {
     });
     expect(r.smoothing.redistributedKwh).toBe(0);
     expect(r.days.find((d) => d.date === '2026-01-15')!.addedKwh).toBe(0);
-    expect(r.tempo.byColor.red.total).toBe(0);
   });
 
   it('ne sert jamais de référence (index non mis à jour)', () => {
@@ -297,7 +299,7 @@ describe('jours à consommation (quasi) nulle', () => {
       referencesAfter: ['2026-01-17'],
       smoothed: true,
     });
-    expect(r.tempo.byColor.red.hpKwh).toBeCloseTo(32 * 0.4, 6);
+    expect(r.days.find((d) => d.date === '2026-01-15')!.smoothedHpKwh).toBeCloseTo(32 * 0.4, 6);
   });
 });
 
@@ -313,7 +315,7 @@ describe('références hors de la période analysée', () => {
       smoothed: true,
     });
     // Profil = (30 + 34) / 2 kWh, appliqué aux heures de la période (HP 06–22 h, HC 22–24 h)
-    expect(r.tempo.byColor.red.hpKwh).toBeCloseTo(32 * 0.4, 6);
+    expect(r.days.find((d) => d.date === '2026-01-15')!.smoothedHpKwh).toBeCloseTo(32 * 0.4, 6);
     expect(r.period.days).toBe(1);
   });
 });

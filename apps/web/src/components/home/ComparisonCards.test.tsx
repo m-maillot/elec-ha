@@ -60,15 +60,19 @@ describe('ComparisonCards – lissage', () => {
             skippedDays: [],
           },
         ],
-        costWithoutSmoothing: 3.21,
+        costWithoutSmoothing: { base: 3.21, hphc: 2.6 },
         redistributedKwh: 22,
         substitutedHours: [],
       },
     };
     render(<ComparisonCards result={smoothed} />);
+    const base = screen.getByRole('region', { name: 'Base' });
+    expect(within(base).getByText('Coût sur la conso observée')).toBeInTheDocument();
+    expect(within(base).getByText(/3,21\s€/)).toBeInTheDocument();
+    expect(within(base).getByText(/\+22\skWh/)).toBeInTheDocument();
+    const hphc = screen.getByRole('region', { name: 'HP / HC' });
+    expect(within(hphc).getByText(/2,60\s€/)).toBeInTheDocument();
     const tempo = screen.getByRole('region', { name: 'Tempo' });
-    expect(within(tempo).getByText('Coût sans lissage')).toBeInTheDocument();
-    expect(within(tempo).getByText(/3,21\s€/)).toBeInTheDocument();
-    expect(within(tempo).getByText(/\+22\skWh/)).toBeInTheDocument();
+    expect(within(tempo).queryByText('Coût sur la conso observée')).not.toBeInTheDocument();
   });
 });

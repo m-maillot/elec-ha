@@ -26,7 +26,7 @@ export const t = {
     currentOption: 'Option actuelle',
     smoothing: 'Lissage jours blancs et rouges',
     smoothingActive: (n: number, refs: number, window: number) =>
-      `Lissage actif : ${n} période(s) blanche(s) ou rouge(s) remplacée(s) par la moyenne horaire des ${refs} jours bleus précédents et suivants (fenêtre ${window} jours).`,
+      `Lissage actif : Base et HP / HC sont calculées sur une consommation « sans effacement » – ${n} période(s) blanche(s) ou rouge(s) relevée(s) au profil horaire moyen des ${refs} jours bleus précédents et suivants (fenêtre ${window} jours). Tempo reste sur la consommation observée.`,
     smoothingNoReference: (n: number) =>
       `${n} période(s) blanche(s) ou rouge(s) non lissée(s) faute de jours bleus de référence`,
     refresh: 'Actualiser',
@@ -71,8 +71,8 @@ export const t = {
       eurHc: '€ HC',
       eurTotal: '€ total',
       excluded: (kwh: string) => `${kwh} exclus faute de couleur connue`,
-      costWithoutSmoothing: 'Coût sans lissage',
-      redistributed: 'kWh redistribués sur les jours blancs et rouges',
+      costWithoutSmoothing: 'Coût sur la conso observée',
+      redistributed: 'kWh ajoutés par le lissage',
     },
     days: {
       title: 'Détail par jour',
