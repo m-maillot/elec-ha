@@ -77,7 +77,7 @@ export const t = {
     days: {
       title: 'Détail par jour',
       description:
-        'Un jour Tempo va de 06:00 à 06:00 le lendemain ; HP / HC selon les créneaux de l’option Tempo.',
+        'Un jour Tempo va de 06:00 à 06:00 le lendemain ; HP / HC selon les créneaux de l’option Tempo. Le lissage ne fait que relever les jours blancs et rouges sous le profil des jours bleus.',
       date: 'Jour',
       color: 'Couleur',
       total: 'Total',

@@ -213,6 +213,41 @@ describe('jours blancs', () => {
   });
 });
 
+describe('lissage uniquement vers le haut', () => {
+  it('laisse tel quel un jour blanc ou rouge qui a déjà consommé plus que le profil', () => {
+    const profiles = {
+      '2026-01-13': p(20),
+      '2026-01-14': p(20),
+      '2026-01-15': p(35),
+      '2026-01-16': p(20),
+      '2026-01-17': p(20),
+    };
+    const r = simulateWithSmoothing(input(profiles, { '2026-01-15': 'red' }));
+    expect(r.smoothing.periods[0]!.smoothed).toBe(true);
+    expect(r.smoothing.redistributedKwh).toBe(0);
+    expect(r.smoothing.substitutedHours).toHaveLength(0);
+    expect(r.tempo.byColor.red.hpKwh).toBeCloseTo(35 * 0.4, 6);
+    expect(r.days.find((d) => d.date === '2026-01-15')!.addedKwh).toBe(0);
+  });
+
+  it('dans une période mixte, seuls les jours sous le profil sont relevés', () => {
+    const profiles = {
+      '2026-01-13': p(30),
+      '2026-01-14': p(40),
+      '2026-01-15': p(10),
+      '2026-01-17': p(30),
+    };
+    const r = simulateWithSmoothing(
+      input(profiles, { '2026-01-14': 'white', '2026-01-15': 'red' }),
+    );
+    // Profil = 30 kWh : le 14 (40) reste, le 15 (10) monte à 30
+    expect(r.days.find((d) => d.date === '2026-01-14')!.addedKwh).toBe(0);
+    expect(r.days.find((d) => d.date === '2026-01-15')!.addedKwh).toBeCloseTo(20, 6);
+    expect(r.tempo.byColor.white.hpKwh).toBeCloseTo(40 * 0.4, 6);
+    expect(r.tempo.byColor.red.hpKwh).toBeCloseTo(30 * 0.4, 6);
+  });
+});
+
 describe('jours à consommation (quasi) nulle', () => {
   it('ne sert jamais de référence (index non mis à jour)', () => {
     // 13/01 à 0 kWh et 14/01 à 0,4 kWh (< 1 kWh), 12/01 valide ; après : 16 à 0, 17 valide

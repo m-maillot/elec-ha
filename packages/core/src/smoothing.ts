@@ -141,7 +141,7 @@ function findReferences(
 /**
  * Applique le lissage (§5.5) à une série résolue : pour chaque période blanche/rouge, les heures
  * des jours concernés (fenêtre de couleur) sont remplacées par le profil moyen des jours bleus
- * de référence.
+ * de référence, uniquement si cela augmente la consommation du jour (jamais vers le bas).
  * Seules les heures présentes sont substituées (les trous restent des trous).
  * `referenceSeries` (défaut : `series`) peut couvrir une période plus large pour trouver des
  * références avant/après la période analysée.
@@ -189,7 +189,19 @@ export function applySmoothing(
     if (!period.smoothed) continue;
     const profile = hourlyProfile(days, refs);
     for (const d of redDays) {
-      for (const h of periodDays.get(d) ?? []) {
+      const dayHours = periodDays.get(d) ?? [];
+      // Le lissage ne peut qu'augmenter la consommation : si le jour a déjà consommé au moins
+      // autant que le profil des jours bleus (sur ses heures présentes), il est laissé tel quel.
+      let actual = 0;
+      let expected = 0;
+      for (const h of dayHours) {
+        const value = profile[Math.floor(h.minuteOfDay / 60)] ?? null;
+        if (value === null) continue;
+        actual += h.kwh ?? 0;
+        expected += value;
+      }
+      if (expected <= actual) continue;
+      for (const h of dayHours) {
         const value = profile[Math.floor(h.minuteOfDay / 60)] ?? null;
         if (value === null) continue;
         substituted.set(h.startUtc, value);
