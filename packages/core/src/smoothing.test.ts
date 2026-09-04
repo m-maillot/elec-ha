@@ -1,5 +1,5 @@
 import { simulate, type SimulationInput } from './simulate.js';
-import { applySmoothing, groupRedPeriods, simulateWithSmoothing } from './smoothing.js';
+import { applySmoothing, groupSmoothingPeriods, simulateWithSmoothing } from './smoothing.js';
 import { resolveHours } from './simulate.js';
 import {
   calendar,
@@ -28,16 +28,17 @@ function input(
   };
 }
 
-describe('groupRedPeriods', () => {
-  it('regroupe les jours rouges consécutifs', () => {
+describe('groupSmoothingPeriods', () => {
+  it('regroupe les jours blancs et rouges consécutifs', () => {
     const cal = calendar('2026-01-01', '2026-01-10', {
+      '2026-01-02': 'white',
       '2026-01-03': 'red',
       '2026-01-04': 'red',
-      '2026-01-08': 'red',
+      '2026-01-08': 'white',
     });
-    expect(groupRedPeriods(cal, '2026-01-01', '2026-01-10')).toEqual([
-      ['2026-01-03', '2026-01-04'],
-      ['2026-01-08'],
+    expect(groupSmoothingPeriods(cal, '2026-01-01', '2026-01-10')).toEqual([
+      { days: ['2026-01-02', '2026-01-03', '2026-01-04'], colors: ['white', 'red', 'red'] },
+      { days: ['2026-01-08'], colors: ['white'] },
     ]);
   });
 });
@@ -58,11 +59,20 @@ describe('lissage – exemple de contrôle §5.6', () => {
     expect(r.smoothing.periods).toEqual([
       {
         days: ['2026-01-15'],
+        colors: ['red'],
         referencesBefore: ['2026-01-12', '2026-01-13', '2026-01-14'],
         referencesAfter: ['2026-01-16', '2026-01-17', '2026-01-18'],
         smoothed: true,
       },
     ]);
+    // Lignes par jour : kWh observés + kWh ajoutés sur le jour rouge
+    const day15 = r.days.find((d) => d.date === '2026-01-15')!;
+    expect(day15).toMatchObject({ color: 'red', presentHours: 24 });
+    expect(day15.kwh).toBeCloseTo(10, 9);
+    expect(day15.hpKwh).toBeCloseTo(4, 9);
+    expect(day15.hcKwh).toBeCloseTo(6, 9);
+    expect(day15.addedKwh).toBeCloseTo(22, 9);
+    expect(r.days.find((d) => d.date === '2026-01-14')!.addedKwh).toBe(0);
     expect(r.tempo.byColor.red.hpKwh).toBeCloseTo(12.8, 9);
     expect(r.tempo.byColor.red.hcKwh).toBeCloseTo(19.2, 9);
     expect(r.tempo.byColor.red.total).toBeCloseTo(12.4384, 6); // 12,8 × 0,7295 + 19,2 × 0,1615 (la spec arrondit à 12,438)
@@ -158,10 +168,60 @@ describe('lissage – exemple de contrôle §5.6', () => {
   });
 });
 
-describe('jours à consommation nulle', () => {
+describe('jours blancs', () => {
+  it('lisse un jour blanc isolé sur les jours bleus voisins', () => {
+    const profiles = {
+      '2026-01-13': p(20),
+      '2026-01-14': p(24),
+      '2026-01-15': p(8),
+      '2026-01-16': p(28),
+      '2026-01-17': p(24),
+    };
+    const r = simulateWithSmoothing(input(profiles, { '2026-01-15': 'white' }));
+    expect(r.smoothing.periods[0]).toMatchObject({
+      days: ['2026-01-15'],
+      colors: ['white'],
+      referencesBefore: ['2026-01-13', '2026-01-14'],
+      referencesAfter: ['2026-01-16', '2026-01-17'],
+      smoothed: true,
+    });
+    // (20 + 24 + 28 + 24) / 4 = 24 kWh
+    expect(r.tempo.byColor.white.hpKwh).toBeCloseTo(24 * 0.4, 6);
+    expect(r.smoothing.redistributedKwh).toBeCloseTo(16, 6);
+  });
+
+  it('un bloc blanc + rouge forme une seule période, référencée sur des jours bleus', () => {
+    const profiles = {
+      '2026-01-13': p(30),
+      '2026-01-14': p(12),
+      '2026-01-15': p(10),
+      '2026-01-16': p(9),
+      '2026-01-17': p(30),
+    };
+    const r = simulateWithSmoothing(
+      input(profiles, { '2026-01-14': 'white', '2026-01-15': 'red', '2026-01-16': 'red' }),
+    );
+    expect(r.smoothing.periods).toHaveLength(1);
+    expect(r.smoothing.periods[0]).toMatchObject({
+      days: ['2026-01-14', '2026-01-15', '2026-01-16'],
+      colors: ['white', 'red', 'red'],
+      referencesBefore: ['2026-01-13'],
+      referencesAfter: ['2026-01-17'],
+    });
+    expect(r.tempo.byColor.white.hpKwh).toBeCloseTo(30 * 0.4, 6);
+    expect(r.tempo.byColor.red.hpKwh).toBeCloseTo(2 * 30 * 0.4, 6);
+  });
+});
+
+describe('jours à consommation (quasi) nulle', () => {
   it('ne sert jamais de référence (index non mis à jour)', () => {
-    // 13 et 14/01 présents mais à 0 kWh, 12/01 valide ; après : 16 à 0, 17 valide
-    const profiles = { '2026-01-12': p(30), '2026-01-15': p(10), '2026-01-17': p(34) };
+    // 13/01 à 0 kWh et 14/01 à 0,4 kWh (< 1 kWh), 12/01 valide ; après : 16 à 0, 17 valide
+    const profiles = {
+      '2026-01-12': p(30),
+      '2026-01-14': p(0.4),
+      '2026-01-15': p(10),
+      '2026-01-17': p(34),
+    };
     const r = simulateWithSmoothing(
       input(profiles, { '2026-01-15': 'red' }, '2026-01-11', '2026-01-18'),
     );

@@ -92,6 +92,7 @@ describe('POST /api/simulate et GET /api/consumption', () => {
       expect(r.smoothing.periods).toEqual([
         {
           days: ['2026-01-15'],
+          colors: ['red'],
           referencesBefore: ['2026-01-14'],
           referencesAfter: ['2026-01-16'],
           smoothed: true,

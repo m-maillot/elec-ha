@@ -6,6 +6,7 @@ import { errorMessage } from '../api/client.js';
 import { useConsumption, useSettings, useSimulate } from '../api/queries.js';
 import { ComparisonCards } from '../components/home/ComparisonCards.js';
 import { ConsumptionChart } from '../components/home/ConsumptionChart.js';
+import { DaysTable } from '../components/home/DaysTable.js';
 import { ParamsBar } from '../components/home/ParamsBar.js';
 import { StatusBanners } from '../components/home/StatusBanners.js';
 import { Alert } from '../components/ui/alert.js';
@@ -128,6 +129,8 @@ export function HomePage() {
           )}
         </CardContent>
       </Card>
+
+      {result && <DaysTable days={result.days} smoothing={result.smoothing !== undefined} />}
     </div>
   );
 }

@@ -53,6 +53,7 @@ describe('ComparisonCards – lissage', () => {
         periods: [
           {
             days: ['2026-01-15'],
+            colors: ['red' as const],
             referencesBefore: ['2026-01-12', '2026-01-13', '2026-01-14'],
             referencesAfter: ['2026-01-16', '2026-01-17', '2026-01-18'],
             smoothed: true,

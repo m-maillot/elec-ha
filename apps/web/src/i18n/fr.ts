@@ -24,11 +24,11 @@ export const t = {
       lastYear: 'Année civile précédente',
     },
     currentOption: 'Option actuelle',
-    smoothing: 'Lissage jours rouges',
+    smoothing: 'Lissage jours blancs et rouges',
     smoothingActive: (n: number, refs: number, window: number) =>
-      `Lissage actif : ${n} période(s) rouge(s) remplacée(s) par la moyenne horaire des ${refs} jours non rouges précédents et suivants (fenêtre ${window} jours).`,
+      `Lissage actif : ${n} période(s) blanche(s) ou rouge(s) remplacée(s) par la moyenne horaire des ${refs} jours bleus précédents et suivants (fenêtre ${window} jours).`,
     smoothingNoReference: (n: number) =>
-      `${n} période(s) rouge(s) non lissée(s) faute de jours de référence`,
+      `${n} période(s) blanche(s) ou rouge(s) non lissée(s) faute de jours bleus de référence`,
     refresh: 'Actualiser',
     refreshing: 'Actualisation…',
     syncStep: { consumption: 'Consommation', tempo: 'Couleurs Tempo' },
@@ -72,7 +72,21 @@ export const t = {
       eurTotal: '€ total',
       excluded: (kwh: string) => `${kwh} exclus faute de couleur connue`,
       costWithoutSmoothing: 'Coût sans lissage',
-      redistributed: 'kWh redistribués sur les jours rouges',
+      redistributed: 'kWh redistribués sur les jours blancs et rouges',
+    },
+    days: {
+      title: 'Détail par jour',
+      description:
+        'Un jour Tempo va de 06:00 à 06:00 le lendemain ; HP / HC selon les créneaux de l’option Tempo.',
+      date: 'Jour',
+      color: 'Couleur',
+      total: 'Total',
+      hp: 'HP',
+      hc: 'HC',
+      added: 'kWh ajoutés (lissage)',
+      missing: (h: number) => `${h} h manquante(s)`,
+      unknownColor: 'inconnue',
+      count: (n: number) => `${n} jour(s)`,
     },
     chart: {
       title: 'Consommation',
@@ -80,7 +94,7 @@ export const t = {
       granularity: { hour: 'heure', day: 'jour', month: 'mois' },
       hint: 'Molette ou glisser pour zoomer, double-clic pour revenir à la vue complète.',
       showSmoothed: 'Afficher la conso lissée',
-      smoothedSeries: 'Conso lissée (jours rouges)',
+      smoothedSeries: 'Conso lissée (jours blancs et rouges)',
       series: {
         base: 'Consommation',
         hp: 'HP',
