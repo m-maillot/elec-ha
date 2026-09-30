@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Projet** | Comparateur d'options tarifaires EDF (Base / HP-HC / Tempo) |
-| **Version** | 0.6 – profil médian pour le lissage |
+| **Version** | 0.7 – détail par appareil |
 | **Date** | 3 septembre 2026 |
 | **Auteur** | Martial |
 | **Statut** | Validée pour démarrage |
@@ -18,6 +18,7 @@
 | 0.4 | 04/09/2026 | Lissage : les jours à consommation nulle ne servent jamais de référence ; références possibles hors de la période analysée |
 | 0.5 | 04/09/2026 | Lissage étendu aux jours **blancs** (références = jours bleus uniquement), uniquement vers le haut, jours sans consommation exclus ; le lissage s'applique à **Base et HP/HC** (Tempo reste observé) ; tableau récapitulatif par jour (§4.2.5) |
 | 0.6 | 04/09/2026 | Profil de substitution = **médiane** heure par heure des références (robuste à une nuit de recharge de véhicule électrique) ; moyenne conservée en option avancée |
+| 0.7 | 30/09/2026 | Détail par appareil : consommation et coût (Base, HP/HC, Tempo) des appareils individuels du tableau de bord Énergie de Home Assistant (§4.2.6) |
 
 ---
 
@@ -195,6 +196,15 @@ Lorsque le lissage est actif (v0.5), les cartes **Base** et **HP/HC** affichent 
 
 En fin d'écran principal, un tableau liste chaque **jour Tempo** (06:00 → 06:00 J+1) de la période : date, couleur (pastille + libellé), consommation totale, consommation HP et HC (créneaux de l'option Tempo), heures manquantes le cas échéant, et – lorsque le lissage est actif – les **kWh ajoutés** par le lissage ainsi que les consommations **HP et HC après lissage**. En-tête fixe et zone défilante pour les longues périodes.
 
+#### 4.2.6 Détail par appareil (v0.7)
+
+Home Assistant détaille la consommation des « appareils individuels » dans son tableau de bord Énergie, mais pas leur coût. L'application reprend cette liste et y ajoute le **coût de chaque appareil dans les trois options**.
+
+- **Configuration** : section « Appareils individuels » – bouton « Importer depuis le tableau de bord Énergie » (WS `energy/get_prefs`, champ `device_consumption` ; nom = nom saisi dans HA, sinon `friendly_name`), ajout manuel parmi les entités d'énergie éligibles, nom modifiable.
+- **Chargement** : les appareils sont synchronisés avec « Actualiser » (étape `devices`), mis en cache comme la consommation. Un jour déjà demandé pour un appareil n'est pas redemandé (table `stat_sync_days`), sauf les 7 derniers jours : un appareil installé en cours de période n'a simplement pas d'historique avant.
+- **Calcul** : pour chaque appareil, heure par heure, kWh total, HP / HC (créneaux de l'option HP/HC) et coût de la consommation en Base, HP/HC et Tempo (couleur du jour, créneaux Tempo) – **hors abonnement, sur la consommation observée (jamais lissée)**. Les heures sans couleur Tempo connue ne sont pas valorisées en Tempo (coût marqué partiel).
+- **Tableau** (écran principal) : appareils triés par consommation, part du logement, ligne **« Non suivi »** = logement − appareils de premier niveau (un appareil déclaré inclus dans un autre, `included_in_stat`, n'est pas retranché deux fois), ligne **Logement**. Signalements : appareil sans donnée ou couvrant partiellement la période, somme des appareils supérieure au logement.
+
 ## 5. Règles de calcul
 
 Notation : la période est découpée en **créneaux horaires** `h` (heure locale `Europe/Paris`), chacun portant une consommation `E(h)` en kWh, un jour `d(h)`, et une couleur Tempo `c(d)` ∈ {bleu, blanc, rouge}.
@@ -334,7 +344,7 @@ Le backend normalise toutes les sources vers la table `tempo_days(date, color, s
 ### 6.5 Modèle de données (SQLite)
 
 ```
-settings          (id=1, ha_url, ha_token_enc, entity_ids (JSON),
+settings          (id=1, ha_url, ha_token_enc, entity_ids (JSON), devices (JSON),
                    subscribed_power_kva, tempo_source, rte_client_id, rte_secret_enc,
                    current_option, smoothing_ref_days=3, smoothing_search_window_days=14,
                    smoothing_profile='median', color_switch_hour=6, updated_at)
@@ -342,6 +352,7 @@ tariffs           (option ∈ base|hphc|tempo, valid_from, subscription_yearly,
                    price_json)              -- {base} | {hp,hc} | {blue_hp,blue_hc,...}
 offpeak_ranges    (id, tariff_set ∈ hphc|tempo, start_min, end_min)   -- minutes depuis 00:00
 consumption_hours (statistic_id, start_utc) PK, kwh, source_sum, fetched_at)  -- cache HA, une ligne par entité ; additionnées à la lecture
+stat_sync_days    (statistic_id, date) PK, fetched_at               -- jours déjà demandés à HA par appareil
 tempo_days        (date PK, color ∈ blue|white|red, source, fetched_at)
 ```
 
@@ -356,6 +367,8 @@ Le cache `consumption_hours` est invalidé pour les **7 derniers jours** à chaq
 | GET | `/api/ha/entities` | liste des entités éligibles |
 | POST | `/api/data/sync?from&to` | charge/complète le cache conso + couleurs ; progression via SSE |
 | GET | `/api/consumption?from&to&granularity=hour\|day\|month` | série pour le graphique |
+| GET | `/api/ha/energy-devices` | appareils individuels du tableau de bord Énergie de HA |
+| GET | `/api/devices/costs?from&to` | consommation et coût par appareil dans les trois options (§4.2.6) |
 | POST | `/api/simulate` | corps `{from, to, currentOption, smoothing: {enabled}}` → résultat complet (§4.2.3) ; les paramètres N et fenêtre viennent des settings |
 | GET/POST | `/api/tempo/days?from&to` | lecture / import CSV |
 

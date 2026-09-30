@@ -17,7 +17,7 @@ const PRESETS: Exclude<PeriodPreset, 'custom'>[] = ['last30', 'last12m', 'tempoS
 
 interface SyncState {
   running: boolean;
-  step: 'consumption' | 'tempo' | null;
+  step: 'consumption' | 'devices' | 'tempo' | null;
   done: number;
   total: number;
   message: string | null;
@@ -71,6 +71,7 @@ export function ParamsBar({ settings }: { settings: SettingsDto }) {
       await Promise.all([
         qc.invalidateQueries({ queryKey: ['consumption'] }),
         qc.invalidateQueries({ queryKey: ['simulate'] }),
+        qc.invalidateQueries({ queryKey: ['devices'] }),
         qc.invalidateQueries({ queryKey: ['settings'] }),
       ]);
     }

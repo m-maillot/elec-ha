@@ -6,6 +6,7 @@ import { SettingsPage } from './SettingsPage.js';
 
 const defaults: SettingsDto = {
   ha: { url: null, tokenSet: false, entityIds: [] },
+  devices: [],
   subscribedPowerKva: 6,
   currentOption: 'base',
   grid: null,
@@ -80,7 +81,7 @@ describe('SettingsPage', () => {
     expect(screen.getByText(/Valeurs publiques indicatives/)).toBeInTheDocument();
 
     const forms = screen.getAllByRole('button', { name: 'Enregistrer' });
-    fireEvent.click(forms[1]!); // section grille
+    fireEvent.click(forms[2]!); // section grille (après HA et appareils)
     await waitFor(() => expect(calls.some((c) => c.init?.method === 'PUT')).toBe(true));
     const put = calls.find((c) => c.init?.method === 'PUT')!;
     const body = JSON.parse(put.init?.body as string) as {
@@ -100,11 +101,53 @@ describe('SettingsPage', () => {
     fireEvent.click(screen.getAllByRole('button', { name: /Ajouter une plage/ })[1]!);
     expect((await screen.findAllByText(/chevauchent/)).length).toBeGreaterThan(0);
     const saveButtons = screen.getAllByRole('button', { name: 'Enregistrer' });
-    expect(saveButtons[2]).toBeDisabled();
+    expect(saveButtons[3]).toBeDisabled();
     // Suppression de la plage ajoutée → valide, 8 h
     fireEvent.click(screen.getByRole('button', { name: /Supprimer la plage 2/ }));
     expect(screen.queryAllByText(/chevauchent/)).toHaveLength(0);
-    expect(saveButtons[2]).toBeEnabled();
+    expect(saveButtons[3]).toBeEnabled();
+  });
+
+  it('importe les appareils du tableau de bord Énergie et les enregistre', async () => {
+    let settings: SettingsDto = {
+      ...defaults,
+      ha: { url: 'http://ha.local:8123', tokenSet: true, entityIds: ['sensor.linky'] },
+      devices: [{ statisticId: 'sensor.nas_energy', name: 'NAS' }],
+    };
+    const calls = mockFetch({
+      'GET /api/settings': () => settings,
+      'GET /api/ha/entities': () => ({ entities: [], totalStatistics: 0 }),
+      'GET /api/ha/energy-devices': () => ({
+        devices: [
+          { statisticId: 'sensor.voiture_energy', name: 'Voiture' },
+          { statisticId: 'sensor.nas_energy', name: 'Livebox NAS' },
+        ],
+      }),
+      'PUT /api/settings': (init) => {
+        settings = { ...settings, ...(JSON.parse(init?.body as string) as Partial<SettingsDto>) };
+        return settings;
+      },
+    });
+    renderPage();
+    await screen.findByText('Appareils individuels');
+    fireEvent.click(
+      screen.getByRole('button', { name: /Importer depuis le tableau de bord Énergie/ }),
+    );
+    expect(await screen.findByText(/1 appareil\(s\) ajouté\(s\) sur 2/)).toBeInTheDocument();
+    // L'appareil déjà présent garde son nom ; le nouveau est renommable
+    expect(screen.getByLabelText('Nom de sensor.nas_energy')).toHaveValue('NAS');
+    fireEvent.change(screen.getByLabelText('Nom de sensor.voiture_energy'), {
+      target: { value: 'Tesla' },
+    });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Enregistrer' })[1]!);
+    await waitFor(() => expect(calls.some((c) => c.init?.method === 'PUT')).toBe(true));
+    const body = JSON.parse(calls.find((c) => c.init?.method === 'PUT')!.init?.body as string) as {
+      devices: unknown;
+    };
+    expect(body.devices).toEqual([
+      { statisticId: 'sensor.nas_energy', name: 'NAS' },
+      { statisticId: 'sensor.voiture_energy', name: 'Tesla' },
+    ]);
   });
 
   it('teste la connexion HA et remplit la liste des entités', async () => {

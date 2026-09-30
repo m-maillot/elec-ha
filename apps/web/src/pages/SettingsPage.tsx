@@ -2,6 +2,7 @@ import { useSearchParams } from 'react-router-dom';
 import { errorMessage } from '../api/client.js';
 import { useSettings } from '../api/queries.js';
 import { AdvancedSection } from '../components/settings/AdvancedSection.js';
+import { DevicesSection } from '../components/settings/DevicesSection.js';
 import { HaConnectionSection } from '../components/settings/HaConnectionSection.js';
 import { OffpeakSection } from '../components/settings/OffpeakSection.js';
 import { TariffSection } from '../components/settings/TariffSection.js';
@@ -22,6 +23,7 @@ export function SettingsPage() {
       <h2 className="text-2xl font-semibold">{t.settings.title}</h2>
       {(params.get('welcome') || !data.configured) && <Alert>{t.settings.welcome}</Alert>}
       <HaConnectionSection settings={data} />
+      <DevicesSection settings={data} />
       <TariffSection settings={data} />
       <OffpeakSection settings={data} />
       <TempoSourceSection settings={data} />

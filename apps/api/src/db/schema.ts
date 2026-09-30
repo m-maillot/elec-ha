@@ -7,6 +7,8 @@ export const settings = sqliteTable('settings', {
   haTokenEnc: text('ha_token_enc'),
   /** JSON : liste des statistic_id additionnés. */
   entityIds: text('entity_ids').notNull().default('[]'),
+  /** JSON : appareils individuels `[{statisticId, name, includedIn?}]`. */
+  devices: text('devices').notNull().default('[]'),
   subscribedPowerKva: integer('subscribed_power_kva').notNull().default(6),
   tempoSource: text('tempo_source').notNull().default('rte'),
   rteClientId: text('rte_client_id'),
@@ -56,3 +58,17 @@ export const tempoDays = sqliteTable('tempo_days', {
   source: text('source').notNull(),
   fetchedAt: text('fetched_at').notNull(),
 });
+
+/**
+ * Jours déjà demandés à HA pour une statistique d'appareil, qu'il y ait eu des données ou non
+ * (un appareil installé en cours de période n'a pas d'historique avant : inutile de redemander).
+ */
+export const statSyncDays = sqliteTable(
+  'stat_sync_days',
+  {
+    statisticId: text('statistic_id').notNull(),
+    date: text('date').notNull(),
+    fetchedAt: text('fetched_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.statisticId, t.date] })],
+);
