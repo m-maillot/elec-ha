@@ -8,6 +8,8 @@ export const keys = {
   tempoDays: (from: string, to: string) => ['tempo', 'days', from, to] as const,
   consumption: (from: string, to: string, g: string) => ['consumption', from, to, g] as const,
   simulate: (body: unknown) => ['simulate', body] as const,
+  deviceCosts: (from: string, to: string, ids: string) =>
+    ['devices', 'costs', from, to, ids] as const,
 };
 
 export function useSettings() {
@@ -39,6 +41,17 @@ export function useSimulate(body: SimulateRequest, enabled: boolean) {
   return useQuery({
     queryKey: keys.simulate(body),
     queryFn: () => api.simulate(body),
+    enabled,
+    staleTime: 5 * 60_000,
+    placeholderData: (prev) => prev,
+  });
+}
+
+/** Coût par appareil ; `ids` (liste des appareils configurés) invalide le cache quand elle change. */
+export function useDeviceCosts(from: string, to: string, ids: string, enabled: boolean) {
+  return useQuery({
+    queryKey: keys.deviceCosts(from, to, ids),
+    queryFn: () => api.getDeviceCosts(from, to),
     enabled,
     staleTime: 5 * 60_000,
     placeholderData: (prev) => prev,

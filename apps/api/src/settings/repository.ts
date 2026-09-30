@@ -3,6 +3,7 @@ import {
   DEFAULT_TEMPO_OFFPEAK,
   TEMPO_SOURCES,
   type BasePrices,
+  type DeviceDto,
   type HpHcPrices,
   type TempoPrices,
   type OffpeakRange,
@@ -104,6 +105,7 @@ export class SettingsRepository {
         tokenSet: r.haTokenEnc !== null,
         entityIds: parseEntityIds(r.entityIds),
       },
+      devices: parseDevices(r.devices),
       subscribedPowerKva: r.subscribedPowerKva as SubscribedPower,
       currentOption: r.currentOption as TariffOption,
       grid,
@@ -179,6 +181,21 @@ export class SettingsRepository {
         const ids = [...new Set(patch.ha.entityIds.map((id) => id.trim()).filter(Boolean))];
         values.entityIds = JSON.stringify(ids);
       }
+    }
+    if (patch.devices !== undefined) {
+      const seen = new Set<string>();
+      const devices: DeviceDto[] = [];
+      for (const d of patch.devices) {
+        const statisticId = d.statisticId.trim();
+        if (!statisticId || seen.has(statisticId)) continue;
+        seen.add(statisticId);
+        devices.push({
+          statisticId,
+          name: d.name.trim() || statisticId,
+          ...(d.includedIn ? { includedIn: d.includedIn } : {}),
+        });
+      }
+      values.devices = JSON.stringify(devices);
     }
     if (patch.subscribedPowerKva !== undefined)
       values.subscribedPowerKva = patch.subscribedPowerKva;
@@ -257,6 +274,22 @@ export class SettingsRepository {
     });
 
     return this.get();
+  }
+}
+
+function parseDevices(json: string): DeviceDto[] {
+  try {
+    const v: unknown = JSON.parse(json);
+    if (!Array.isArray(v)) return [];
+    return v.filter(
+      (d): d is DeviceDto =>
+        typeof d === 'object' &&
+        d !== null &&
+        typeof (d as DeviceDto).statisticId === 'string' &&
+        typeof (d as DeviceDto).name === 'string',
+    );
+  } catch {
+    return [];
   }
 }
 

@@ -50,6 +50,16 @@ export const SettingsUpdateSchema = Type.Object({
       entityIds: Type.Optional(Type.Array(Type.String({ minLength: 1 }), { maxItems: 20 })),
     }),
   ),
+  devices: Type.Optional(
+    Type.Array(
+      Type.Object({
+        statisticId: Type.String({ minLength: 1 }),
+        name: Type.String(),
+        includedIn: Type.Optional(NullableString),
+      }),
+      { maxItems: 50 },
+    ),
+  ),
   subscribedPowerKva: Type.Optional(SubscribedPowerSchema),
   currentOption: Type.Optional(TariffOptionSchema),
   grid: Type.Optional(TariffGridSchema),

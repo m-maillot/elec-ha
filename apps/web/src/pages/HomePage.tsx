@@ -3,10 +3,11 @@ import { Navigate, useSearchParams } from 'react-router-dom';
 import { isIsoDate } from '@elec-ha/core';
 import { TARIFF_OPTIONS } from '@elec-ha/core';
 import { errorMessage } from '../api/client.js';
-import { useConsumption, useSettings, useSimulate } from '../api/queries.js';
+import { useConsumption, useDeviceCosts, useSettings, useSimulate } from '../api/queries.js';
 import { ComparisonCards } from '../components/home/ComparisonCards.js';
 import { ConsumptionChart } from '../components/home/ConsumptionChart.js';
 import { DaysTable } from '../components/home/DaysTable.js';
+import { DevicesTable } from '../components/home/DevicesTable.js';
 import { ParamsBar } from '../components/home/ParamsBar.js';
 import { StatusBanners } from '../components/home/StatusBanners.js';
 import { Alert } from '../components/ui/alert.js';
@@ -45,6 +46,10 @@ export function HomePage() {
   const configured = settings.data?.configured ?? false;
   const simulation = useSimulate({ from, to, smoothing: { enabled: smoothing } }, configured);
   const consumption = useConsumption(from, to, configured);
+  const deviceIds = (settings.data?.devices ?? [])
+    .map((d) => `${d.statisticId}=${d.name}`)
+    .join('|');
+  const deviceCosts = useDeviceCosts(from, to, deviceIds, configured && deviceIds !== '');
 
   const result = simulation.data;
   const substituted = useMemo(
@@ -129,6 +134,14 @@ export function HomePage() {
           )}
         </CardContent>
       </Card>
+
+      <DevicesTable
+        costs={deviceIds === '' ? undefined : deviceCosts.data}
+        configured={settings.data.devices.length}
+        currentOption={settings.data.currentOption}
+        loading={deviceCosts.isPending}
+      />
+      {deviceCosts.isError && <Alert variant="error">{errorMessage(deviceCosts.error)}</Alert>}
 
       {result && <DaysTable days={result.days} smoothing={result.smoothing !== undefined} />}
     </div>

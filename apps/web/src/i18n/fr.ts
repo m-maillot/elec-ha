@@ -31,7 +31,7 @@ export const t = {
       `${n} période(s) blanche(s) ou rouge(s) non lissée(s) faute de jours bleus de référence`,
     refresh: 'Actualiser',
     refreshing: 'Actualisation…',
-    syncStep: { consumption: 'Consommation', tempo: 'Couleurs Tempo' },
+    syncStep: { consumption: 'Consommation', devices: 'Appareils', tempo: 'Couleurs Tempo' },
     syncDone: (hours: number, colors: number) =>
       `Actualisation terminée : ${hours} heure(s) chargée(s), ${colors} couleur(s) Tempo ajoutée(s).`,
     syncTempoError: (msg: string) => `Couleurs Tempo non complétées : ${msg}`,
@@ -89,6 +89,28 @@ export const t = {
       missing: (h: number) => `${h} h manquante(s)`,
       unknownColor: 'inconnue',
       count: (n: number) => `${n} jour(s)`,
+    },
+    devices: {
+      title: 'Détail par appareil',
+      description:
+        'Consommation observée de chaque appareil et coût de cette consommation dans les trois options, heure par heure (hors abonnement, sans lissage).',
+      device: 'Appareil',
+      total: 'Total (kWh)',
+      share: '% du logement',
+      hp: 'HP (kWh)',
+      hc: 'HC (kWh)',
+      cost: (option: string) => `Coût ${option}`,
+      untracked: 'Non suivi (reste du logement)',
+      house: 'Logement',
+      noData: 'aucune donnée sur la période',
+      coverage: (pct: string) => `données sur ${pct} de la période`,
+      none: 'Aucun appareil individuel n’est configuré.',
+      configure: 'Les ajouter dans la configuration',
+      overcounted:
+        'La somme des appareils dépasse la consommation du logement sur la période : vérifiez qu’un appareil n’est pas compté deux fois.',
+      tempoPartial: (kwh: string) => `${kwh} sans couleur Tempo connue, non valorisés`,
+      tempoPartialNote:
+        'Coût Tempo partiel : une partie de la consommation est sans couleur Tempo connue.',
     },
     chart: {
       title: 'Consommation',
@@ -194,6 +216,21 @@ export const t = {
         result: (imported: number, skipped: number) =>
           `${imported} jour(s) importé(s), ${skipped} ignoré(s) (déjà connus).`,
       },
+    },
+    devices: {
+      title: 'Appareils individuels',
+      description:
+        'Appareils dont la consommation et le coût sont détaillés sur l’écran principal, comme dans le tableau de bord Énergie de Home Assistant.',
+      importButton: 'Importer depuis le tableau de bord Énergie',
+      imported: (added: number, total: number) =>
+        `${added} appareil(s) ajouté(s) sur ${total} trouvé(s) dans Home Assistant. Pensez à enregistrer.`,
+      empty: 'Aucun appareil pour le moment.',
+      nameOf: (id: string) => `Nom de ${id}`,
+      remove: (name: string) => `Retirer ${name}`,
+      addLabel: 'Ajouter un appareil',
+      addPlaceholder: '— Ajouter une entité d’énergie —',
+      syncHint:
+        'Après enregistrement, cliquez sur « Actualiser » sur l’écran principal pour charger l’historique des appareils.',
     },
     advanced: {
       title: 'Paramètres avancés',

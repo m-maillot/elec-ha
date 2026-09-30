@@ -2,6 +2,7 @@
  * Contrats de l'API interne (backend ↔ front). Types uniquement, aucun code.
  * Réf. spec §6.6.
  */
+import type { DeviceCostsResult } from './devices.js';
 import type { SimulationResult } from './simulate.js';
 import type { SmoothingProfile, SmoothingSummary } from './smoothing.js';
 import type {
@@ -39,8 +40,27 @@ export interface AdvancedSettingsDto {
   smoothingProfile: SmoothingProfile;
 }
 
+/** Appareil individuel suivi (statistique d'énergie HA). */
+export interface DeviceDto {
+  statisticId: string;
+  name: string;
+  /** Appareil parent (`included_in_stat` du tableau de bord Énergie). */
+  includedIn?: string | null;
+}
+
+export interface HaEnergyDevicesResponse {
+  /** Appareils individuels du tableau de bord Énergie de Home Assistant. */
+  devices: DeviceDto[];
+}
+
+export interface DeviceCostsResponse extends DeviceCostsResult {
+  lastSyncAt: string | null;
+}
+
 export interface SettingsDto {
   ha: HaSettingsDto;
+  /** Appareils individuels dont on détaille la consommation et le coût. */
+  devices: DeviceDto[];
   subscribedPowerKva: SubscribedPower;
   currentOption: TariffOption;
   /** `null` tant qu'aucune grille n'a été saisie. */
@@ -61,6 +81,7 @@ export interface SettingsUpdateDto {
     token?: string;
     entityIds?: string[];
   };
+  devices?: DeviceDto[];
   subscribedPowerKva?: SubscribedPower;
   currentOption?: TariffOption;
   grid?: TariffGrid;
@@ -185,7 +206,7 @@ export interface RteTestResponse {
 export type SyncEvent =
   | {
       type: 'progress';
-      step: 'consumption' | 'tempo';
+      step: 'consumption' | 'devices' | 'tempo';
       done: number;
       total: number;
       message: string;
@@ -193,6 +214,7 @@ export type SyncEvent =
   | {
       type: 'done';
       consumption: { chunks: number; hoursStored: number; daysRequested: number };
+      devices: { chunks: number; hoursStored: number; daysRequested: number };
       tempo: TempoCompletionResult;
       lastSyncAt: string;
     }

@@ -1,7 +1,7 @@
 import { and, gte, inArray, lt } from 'drizzle-orm';
 import { addDays, eachDay, compareDates, LocalClock } from '@elec-ha/core';
 import type { Db } from '../db/index.js';
-import { consumptionHours } from '../db/schema.js';
+import { consumptionHours, statSyncDays } from '../db/schema.js';
 import type { HaClient, HaStatBucket } from '../ha/client.js';
 
 /** Taille maximale d'une tranche demandée à HA (jours). Réf. spec §6.2. */
@@ -177,4 +177,77 @@ export function storeBuckets(
     });
   }
   return rows.length;
+}
+
+/**
+ * Jours de `[from, to]` à charger pour les appareils : ceux jamais demandés pour au moins un
+ * appareil (table `stat_sync_days`), ou parmi les 7 derniers jours. Les jours futurs sont exclus.
+ */
+export function selectDeviceDaysToFetch(
+  db: Db,
+  statisticIds: readonly string[],
+  from: string,
+  to: string,
+  today: string,
+): string[] {
+  if (statisticIds.length === 0) return [];
+  const last = compareDates(to, today) > 0 ? today : to;
+  if (compareDates(from, last) > 0) return [];
+  const rows = db
+    .select({ statisticId: statSyncDays.statisticId, date: statSyncDays.date })
+    .from(statSyncDays)
+    .where(
+      and(
+        inArray(statSyncDays.statisticId, [...statisticIds]),
+        gte(statSyncDays.date, from),
+        lt(statSyncDays.date, addDays(last, 1)),
+      ),
+    )
+    .all();
+  const covered = new Set(rows.map((r) => `${r.statisticId}|${r.date}`));
+  const refreshFrom = addDays(today, -(REFRESH_LAST_DAYS - 1));
+  return eachDay(from, last).filter(
+    (d) =>
+      compareDates(d, refreshFrom) >= 0 || statisticIds.some((id) => !covered.has(`${id}|${d}`)),
+  );
+}
+
+/** Charge la consommation horaire des appareils individuels dans le cache. */
+export async function syncDevices(params: SyncConsumptionParams): Promise<SyncConsumptionResult> {
+  const { db, clock, ha, statisticIds, from, to, onProgress } = params;
+  const today = params.today ?? clock.toLocal(Date.now()).date;
+  const days = selectDeviceDaysToFetch(db, statisticIds, from, to, today);
+  const chunks = planChunks(days);
+  let hoursStored = 0;
+
+  if (chunks.length > 0) {
+    await ha.withConnection(async (conn) => {
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i]!;
+        onProgress?.(i, chunks.length, `Appareils du ${chunk.from} au ${chunk.to}`);
+        const startMs = clock.localMidnightUtcMs(chunk.from);
+        const endMs = clock.localMidnightUtcMs(addDays(chunk.to, 1));
+        const byEntity = await ha.statisticsDuringPeriod(conn, statisticIds, startMs, endMs);
+        const fetchedAt = new Date().toISOString();
+        for (const id of statisticIds) {
+          hoursStored += storeBuckets(db, id, byEntity[id] ?? [], startMs, endMs);
+        }
+        db.transaction((tx) => {
+          for (const id of statisticIds) {
+            for (const date of eachDay(chunk.from, chunk.to)) {
+              tx.insert(statSyncDays)
+                .values({ statisticId: id, date, fetchedAt })
+                .onConflictDoUpdate({
+                  target: [statSyncDays.statisticId, statSyncDays.date],
+                  set: { fetchedAt },
+                })
+                .run();
+            }
+          }
+        });
+        onProgress?.(i + 1, chunks.length, `Appareils : tranche ${i + 1}/${chunks.length} chargée`);
+      }
+    });
+  }
+  return { chunks: chunks.length, hoursStored, daysRequested: days.length };
 }

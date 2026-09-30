@@ -6,6 +6,10 @@ export interface FakeHaOptions {
   token?: string;
   version?: string;
   statisticIds?: Array<Record<string, unknown>>;
+  /** Réponse de `energy/get_prefs`. */
+  energyPrefs?: Record<string, unknown>;
+  /** Réponse de `get_states`. */
+  states?: Array<Record<string, unknown>>;
   /** Génère les buckets horaires `[startMs, endMs[` (start epoch ms). */
   statistics?: (
     statisticId: string,
@@ -65,6 +69,12 @@ export async function startFakeHa(opts: FakeHaOptions = {}): Promise<FakeHa> {
       switch (msg['type']) {
         case 'recorder/list_statistic_ids':
           reply(opts.statisticIds ?? []);
+          break;
+        case 'energy/get_prefs':
+          reply(opts.energyPrefs ?? { energy_sources: [], device_consumption: [] });
+          break;
+        case 'get_states':
+          reply(opts.states ?? []);
           break;
         case 'recorder/statistics_during_period': {
           const ids = msg['statistic_ids'] as string[];

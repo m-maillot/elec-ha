@@ -3,7 +3,7 @@ import type { SyncEvent } from '@elec-ha/core';
 import { ApiError, badRequest, notConfigured } from '../errors.js';
 import { HaClient } from '../ha/client.js';
 import { PeriodQuerySchema } from '../schemas.js';
-import { syncConsumption } from './sync.js';
+import { syncConsumption, syncDevices } from './sync.js';
 import { completeTempoDays } from '../tempo/sources.js';
 
 export interface DataRoutesOptions {
@@ -12,8 +12,8 @@ export interface DataRoutesOptions {
 }
 
 /**
- * `POST /api/data/sync?from&to` : charge/complète le cache de consommation puis les
- * couleurs Tempo, et diffuse la progression en SSE.
+ * `POST /api/data/sync?from&to` : charge/complète le cache de consommation, celui des
+ * appareils individuels puis les couleurs Tempo, et diffuse la progression en SSE.
  */
 export const dataRoutes: FastifyPluginAsyncTypebox<DataRoutesOptions> = async (app, opts) => {
   app.post('/api/data/sync', { schema: { querystring: PeriodQuerySchema } }, async (req, reply) => {
@@ -45,6 +45,17 @@ export const dataRoutes: FastifyPluginAsyncTypebox<DataRoutesOptions> = async (a
         onProgress: (done, total, message) =>
           send({ type: 'progress', step: 'consumption', done, total, message }),
       });
+      const deviceIds = app.ctx.settings.get().devices.map((d) => d.statisticId);
+      const devices = await syncDevices({
+        db: app.ctx.db,
+        clock: app.ctx.clock,
+        ha: new HaClient(conn.url, conn.token),
+        statisticIds: deviceIds,
+        from,
+        to,
+        onProgress: (done, total, message) =>
+          send({ type: 'progress', step: 'devices', done, total, message }),
+      });
       const tempo = await completeTempoDays({
         db: app.ctx.db,
         clock: app.ctx.clock,
@@ -56,7 +67,7 @@ export const dataRoutes: FastifyPluginAsyncTypebox<DataRoutesOptions> = async (a
       });
       const lastSyncAt = new Date().toISOString();
       app.ctx.settings.setLastSyncAt(lastSyncAt);
-      send({ type: 'done', consumption, tempo, lastSyncAt });
+      send({ type: 'done', consumption, devices, tempo, lastSyncAt });
     } catch (err) {
       req.log.error(err);
       const code = err instanceof ApiError ? err.code : 'sync_failed';

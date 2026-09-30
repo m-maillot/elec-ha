@@ -16,6 +16,7 @@ import { consumptionRoutes } from './consumption/routes.js';
 import { tempoRoutes } from './tempo/routes.js';
 import { rteRoutes } from './tempo/rte-routes.js';
 import { simulateRoutes } from './simulate/routes.js';
+import { devicesRoutes } from './devices/routes.js';
 
 export interface BuildAppOptions {
   config: Pick<AppConfig, 'appSecret' | 'webDistDir'> & { dataDir?: string };
@@ -69,6 +70,7 @@ export async function buildApp({
   await app.register(tempoRoutes);
   await app.register(rteRoutes, rteBaseUrl ? { baseUrl: rteBaseUrl } : {});
   await app.register(simulateRoutes);
+  await app.register(devicesRoutes);
 
   // En production, l'API sert aussi la SPA (image Docker unique).
   if (config.webDistDir && fs.existsSync(config.webDistDir)) {

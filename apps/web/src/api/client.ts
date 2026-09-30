@@ -1,6 +1,8 @@
 import type {
   ConsumptionResponse,
+  DeviceCostsResponse,
   Granularity,
+  HaEnergyDevicesResponse,
   HaEntitiesResponse,
   HaTestRequest,
   HaTestResponse,
@@ -71,6 +73,9 @@ export const api = {
     request<SettingsDto>('/api/settings', { method: 'PUT', body: JSON.stringify(patch) }),
   testHa: (body: HaTestRequest) => request<HaTestResponse>('/api/ha/test', json(body)),
   getHaEntities: () => request<HaEntitiesResponse>('/api/ha/entities'),
+  getEnergyDevices: () => request<HaEnergyDevicesResponse>('/api/ha/energy-devices'),
+  getDeviceCosts: (from: string, to: string) =>
+    request<DeviceCostsResponse>(`/api/devices/costs?from=${from}&to=${to}`),
   testRte: (body: RteTestRequest) => request<RteTestResponse>('/api/tempo/rte/test', json(body)),
   importTempoCsv: (csv: string, overwrite: boolean) =>
     request<TempoCsvImportResult>('/api/tempo/days', json({ csv, overwrite })),

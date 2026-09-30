@@ -33,6 +33,20 @@ export interface HaStatisticId {
   unit_of_measurement?: string | null;
 }
 
+export interface HaEnergyPrefs {
+  device_consumption?: Array<{
+    stat_consumption: string;
+    name?: string | null;
+    included_in_stat?: string | null;
+  }>;
+}
+
+export interface HaState {
+  entity_id: string;
+  state: string;
+  attributes: Record<string, unknown>;
+}
+
 /** Bucket brut renvoyé par `recorder/statistics_during_period`. */
 export interface HaStatBucket {
   /** Début (epoch ms UTC). */
@@ -125,6 +139,15 @@ export class HaClient {
     } finally {
       conn.close();
     }
+  }
+
+  /** Préférences du tableau de bord Énergie (appareils individuels). */
+  getEnergyPrefs(conn: Connection): Promise<HaEnergyPrefs> {
+    return conn.sendMessagePromise<HaEnergyPrefs>({ type: 'energy/get_prefs' });
+  }
+
+  getStates(conn: Connection): Promise<HaState[]> {
+    return conn.sendMessagePromise<HaState[]>({ type: 'get_states' });
   }
 
   listStatisticIds(conn: Connection): Promise<HaStatisticId[]> {

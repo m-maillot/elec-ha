@@ -7,6 +7,7 @@ export const configuredSettings: SettingsDto = {
     tokenSet: true,
     entityIds: ['sensor.linky_hp', 'sensor.linky_hc'],
   },
+  devices: [],
   subscribedPowerKva: 6,
   currentOption: 'base',
   grid: TARIF_BLEU_2026_08[6]!,
